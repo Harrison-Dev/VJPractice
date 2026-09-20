@@ -1,0 +1,35 @@
+# Unity-generated caches and local editor state
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Builds, diagnostic captures, and generated debug symbols
+/[Bb]uild/
+/[Bb]uilds/
+/Verification/
+*.app/
+*_BurstDebugInformation_DoNotShip/
+
+# IDE and operating-system files
+.vs/
+.idea/
+.DS_Store
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.log
+
+# Local secrets and machine-specific configuration
+.env
+.env.*
+
+# User-owned music belongs here; keep the folder instructions and Unity metadata
+/Assets/VJ/Audio/*
+!/Assets/VJ/Audio/README.md
+!/Assets/VJ/Audio/README.md.meta
