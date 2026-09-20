@@ -96,3 +96,5 @@ For a macOS build, select macOS in Unity Build Profiles and include the main lyr
 Git tracks source, Unity `.meta` files, scenes, settings, original demo assets, package locks, and documentation. It excludes Unity caches, builds, runtime screenshots/logs, local configuration, and personal music placed under `Assets/VJ/Audio/`. Existing local app builds are stored separately from this source snapshot.
 
 Additional Traditional Chinese instructions: [operation guide](Docs/OperationGuide.md).
+
+License inventory and redistribution boundaries: [License review](Docs/LicenseReview.md). Dependency license notices are included under `Assets/StreamingAssets/ThirdPartyLicenses` for future builds.

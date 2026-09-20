@@ -1,0 +1,4 @@
+NotoSansCJKjp-Regular.otf
+Copyright notice extracted from the bundled font name table:
+© 2014-2021 Adobe (http://www.adobe.com/).
+Licensed under SIL Open Font License 1.1; see Noto-OFL.txt.
