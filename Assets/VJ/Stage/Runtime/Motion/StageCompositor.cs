@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -34,7 +35,7 @@ namespace VJPractice.Stage.Motion
             displayCamera.backgroundColor = Color.black;
             displayCamera.depth = camera.depth - 1;
             displayCamera.targetDisplay = camera.targetDisplay;
-            RenderPipelineManager.endFrameRendering += EndFrame;
+            RenderPipelineManager.endContextRendering += EndContext;
         }
 
         public void Prepare(bool enabled, int width, int height)
@@ -60,7 +61,7 @@ namespace VJPractice.Stage.Motion
             camera.targetTexture = live; camera.rect = new Rect(0, 0, 1, 1);
         }
 
-        void EndFrame(ScriptableRenderContext context, Camera[] cameras)
+        void EndContext(ScriptableRenderContext context, List<Camera> cameras)
         {
             if (!active || !live || !presented || (frozen() && hasFrame)) return;
             // URP has submitted its camera commands by this point. Scheduling another
@@ -91,7 +92,7 @@ namespace VJPractice.Stage.Motion
 
         public void Dispose()
         {
-            RenderPipelineManager.endFrameRendering -= EndFrame;
+            RenderPipelineManager.endContextRendering -= EndContext;
             if (camera) { camera.targetTexture = originalTarget; camera.rect = originalRect; }
             if (displayCamera) UnityEngine.Object.Destroy(displayCamera.gameObject);
             Release(); active = false;

@@ -144,7 +144,7 @@ namespace VJPractice.Stage.Motion
         }
     }
 
-    /// <summary>Commands commit at the next nonempty cue boundary, including an explicit seek.</summary>
+    /// <summary>Plans active cues and preserves queued commands across instrumental gaps.</summary>
     public sealed class LyricMotionDirector
     {
         public LyricMotionPlan Plan { get; }
@@ -153,7 +153,7 @@ namespace VJPractice.Stage.Motion
         MotionMood? pendingMood;
         bool rerollNext;
         int lastLine = -1;
-        string lastHash = "";
+        string lastHash = "", lastText = "";
 
         public LyricMotionDirector(LyricMotionPlan plan) { Plan = plan ?? throw new ArgumentNullException(nameof(plan)); }
         public void QueueMood(MotionMood mood)
@@ -162,6 +162,23 @@ namespace VJPractice.Stage.Motion
             pendingMood = mood;
         }
         public void QueueReroll() { rerollNext = true; }
+        public bool SetMood(MotionMood mood)
+        {
+            if (!Enum.IsDefined(typeof(MotionMood), mood)) throw new ArgumentOutOfRangeException(nameof(mood));
+            Plan.mood = mood;
+            pendingMood = null;
+            if (Current == null || Current.locked || Current.mood == mood) return false;
+            Current = LyricMotionPlanner.ForLine(Plan, lastLine, lastText);
+            return true;
+        }
+        public bool RerollCurrentOrNext()
+        {
+            if (Current == null) { QueueReroll(); return false; }
+            if (Current.locked) return false;
+            rerollNext = false;
+            Current = LyricMotionPlanner.ForLine(Plan, lastLine, lastText, true);
+            return true;
+        }
         public bool ToggleLock() { if (Current == null) return false; Current.locked = !Current.locked; return Current.locked; }
         public MotionCut Visit(int index, string text)
         {
@@ -177,7 +194,7 @@ namespace VJPractice.Stage.Motion
                 reroll = rerollNext; rerollNext = false;
             }
             Current = LyricMotionPlanner.ForLine(Plan, index, text, reroll);
-            lastLine = index; lastHash = hash;
+            lastLine = index; lastHash = hash; lastText = text;
             return Current;
         }
     }

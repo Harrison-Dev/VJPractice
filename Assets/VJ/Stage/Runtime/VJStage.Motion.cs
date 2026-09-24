@@ -17,7 +17,7 @@ namespace VJPractice.Stage
         public int MotionMoodIndex => motionDirector == null ? 1 : (int)motionDirector.Plan.mood;
         public bool MotionLocked => motionDirector?.Current != null && motionDirector.Current.locked;
         public bool MotionPending => motionDirector != null && motionDirector.HasPending;
-        public string MotionStatus { get; private set; } = "K：文字 PV · M：風格 · N：下一句重抽 · L：鎖定";
+        public string MotionStatus { get; private set; } = "先在音源頁選原創示範；M：風格 · N：重抽 · L：鎖定";
         KineticLyricRenderer motionRenderer;
         StageCompositor motionCompositor;
         LyricMotionDirector motionDirector;
@@ -79,8 +79,12 @@ namespace VJPractice.Stage
             MotionCut cut = motionDirector.Visit(index, cue?.text);
             motionRenderer.Render(cue, cut, Position - Document.offsetSeconds,
                 Energy, Density, Flow, Echo, Audio == null ? 0 : Audio.Bands.x);
-            string state = cut == null ? "等待下一句" : $"第 {index + 1} 句 / {cut.layout} / {(cut.locked ? "已鎖定" : "自動")}";
-            MotionStatus = state + (MotionPending ? " · 變更待下一句生效" : "")
+            string state = cut == null
+                ? Audio != null && Audio.Source.clip == null && !Audio.External
+                    ? "先到音源頁選原創示範"
+                    : "目前無歌詞；請播放或跳到有字段落"
+                : $"第 {index + 1} 句 / {cut.layout} / {(cut.locked ? "已鎖定" : "自動")}";
+            MotionStatus = state + (MotionPending ? " · 下一句待重抽" : "")
                 + (cut != null && motionRenderer.Truncated ? " · 長句預覽截斷（原文不變）" : "");
         }
 
@@ -145,21 +149,30 @@ namespace VJPractice.Stage
         public bool ApplyMotionControl(string action, float value)
         {
             if (!LyricDocument.Finite(value)) return true;
-            // Selecting a classic style must leave the new renderer, including from the existing LAN controller.
+            // Selecting a classic style leaves the new renderer.
             if (action == "lyric") { KineticLyrics = false; return false; }
             switch (action)
             {
-                case "motion": KineticLyrics = value >= .5f; return true;
-                case "motionMood":
-                    if (motionDirector != null)
-                    {
-                        requestedMood = Mathf.Clamp((int)value, 0, 2);
-                        motionDirector.QueueMood((MotionMood)requestedMood);
-                        Message = "風格將於下一個非空歌詞段落生效。";
-                    }
+                case "motion":
+                    if (value >= .5f && (motionRenderer == null || motionCompositor == null))
+                    { Message = "文字 PV 尚未就緒；請查看 Unity Console。"; return true; }
+                    KineticLyrics = value >= .5f;
                     return true;
-                case "motionReroll": motionDirector?.QueueReroll(); Message = "下一句重抽；已鎖定的句子不變。"; return true;
+                case "motionMood":
+                    if (!ActivateMotionControls()) return true;
+                    requestedMood = Mathf.Clamp((int)value, 0, 2);
+                    bool changed = motionDirector != null && motionDirector.SetMood((MotionMood)requestedMood);
+                    Message = changed ? "已套用風格到目前歌詞。" : motionDirector?.Current?.locked == true
+                        ? "目前歌詞已鎖定；新風格會套用到其他句。" : "已選風格；播放到歌詞時顯示。";
+                    return true;
+                case "motionReroll":
+                    if (!ActivateMotionControls()) return true;
+                    bool rerolled = motionDirector != null && motionDirector.RerollCurrentOrNext();
+                    Message = rerolled ? "已重抽目前歌詞。" : motionDirector?.Current?.locked == true
+                        ? "目前歌詞已鎖定；先解鎖才能重抽。" : "目前沒有歌詞；下一句將重抽。";
+                    return true;
                 case "motionLock":
+                    if (!ActivateMotionControls()) return true;
                     Message = motionDirector?.Current == null ? "目前沒有可鎖定的歌詞。"
                         : motionDirector.ToggleLock() ? "已鎖定本句配置。" : "已解鎖本句配置。";
                     return true;
@@ -168,6 +181,18 @@ namespace VJPractice.Stage
                 case "motionCapture": CaptureMotionOutput(); return true;
                 default: return false;
             }
+        }
+
+        bool ActivateMotionControls()
+        {
+            if (motionRenderer == null || motionCompositor == null)
+            { Message = "文字 PV 尚未就緒；請查看 Unity Console。"; return false; }
+            KineticLyrics = true;
+            if (Document == null) return true;
+            if (motionDirector == null || motionDocument != Document) BindMotionDocument();
+            int index = Document.ActiveAt(Position);
+            motionDirector.Visit(index, index >= 0 ? Document.lines[index].text : null);
+            return true;
         }
 
         bool HandleMotionKey(KeyCode key)

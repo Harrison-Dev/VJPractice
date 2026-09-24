@@ -4,15 +4,15 @@
 
 | 層級 | 測試內容 | 本次狀態 |
 | --- | --- | --- |
-| C# production core | 24 個測試：seed、順序獨立、重抽、鎖定、延後操作、間奏、seek、時間邊界、Unicode、長句 fallback、JSON、schema、文化設定 | GitHub Actions 已執行通過；PR 最新 commit 的 checks 為準 |
-| Source invariants | 13 項：七個接入點外 VJStage 完整 blob 不變、clock、callback cleanup、RT freeze/blackout、池上限、按鈕路由、LAN 邊界、F8 貼圖來源、meta | 本機 Python 檢查已通過，亦納入 CI |
-| LAN JavaScript | 新增控制區塊的 JavaScript 語法 | 本機 `node --check` 已通過；不是 Safari 互動實測 |
-| Unity compilation / GPU | Unity 6000.0.64f1 + URP、字型、真正的 Canvas 與 RT | 2026-09-24 在 Apple M1 Pro 的 Editor 編譯、Play Mode 與 output probe 通過；原創示範畫面與 PNG 已人工檢視 |
-| macOS Player | 獨立版建置與啟動 | 2026-09-24 macOS Build And Run 成功，獨立版顯示 Kinetic 文字、背景與粒子，Player.log 未見例外 |
-| iPad / sustained FPS / external sync | 實體 iPad、長時間效能、Spotify 同步回歸 | 尚未完整驗收；獨立版短時間顯示約 58 FPS，不能視為持續效能保證 |
+| C# production core | 28 個測試：seed、順序獨立、即時風格與重抽、鎖定、間奏、seek、時間邊界、Unicode、長句 fallback、JSON、schema、文化設定 | 本機通過；PR 最新 commit 的 checks 為準 |
+| Source invariants | 11 項：舊 VJStage 完整 blob 接入點、clock、callback cleanup、RT freeze/blackout、池上限、控制路由、遠端面板移除、F8 貼圖來源、meta | 本機 Python 檢查已通過，亦納入 CI |
+| Unity compilation / GPU | Unity 6000.0.64f1 + URP、字型、真正的 Canvas 與 RT | 2026-09-24 Editor 編譯 0 error、0 warning；Play Mode 原創示範與 output probe 通過，本輪未建獨立版 |
+| Sustained FPS / external sync | 長時間效能、Spotify 同步回歸 | 尚未完整驗收；先前獨立版短測數值不能視為新版持續效能保證 |
 
 初次 core 成功的可追溯紀錄：[run 36003861068](https://github.com/Harrison-Dev/VJPractice/actions/runs/36003861068)。
 本機 probe 產生的 `Verification/Kinetic-Probe.png` 不納入 Git；需要人工查看排版時可在 Editor 重跑產生。
+
+本輪在 Editor 將原創示範停在 12.01 秒，確認冷靜風格立即把目前的 Diagonal 切為 Typewriter，N 立即重抽為 Hero；鎖定後選故障保持該句畫面，切到 Q 後按風格會重新啟用文字 PV。移除遠端操作盤後，右側已無 iPad 連線按鈕。
 
 ## 不需要 Unity 的測試
 
@@ -22,7 +22,7 @@ python3 Tools/validate_motion_sources.py
 ```
 
 .NET 測試直接編譯 production `LyricMotionPlan.cs`，不是 Python 改寫的模型。JSON round trip 的 .NET 測試使用 System.Text.Json；Unity JsonUtility 另外在下方 Editor probe 測。
-source guard 會反轉七個接入點並比對原 `VJStage.cs` Git blob `24aec6c48bc624026b9855c4ecfbc6cea884d782`，因此修改舊邏輯必須明確更新基準。
+source guard 會反轉文字 PV 接入與遠端面板移除的修改，並比對原 `VJStage.cs` Git blob `24aec6c48bc624026b9855c4ecfbc6cea884d782`，因此修改舊邏輯必須明確更新基準。
 
 ## Unity 可重複的 output probe
 
@@ -41,12 +41,11 @@ probe 會實際檢查 Unity JSON round trip、原生 Canvas 測試色塊出現�
 - [ ] Unity scripts 與 URP shader 沒有編譯／缺少字型材質錯誤，初次 Play 正常。
 - [ ] 原創範例依次出現文字；F8 PNG 同時含文字、背景、粒子，不含操作台。
 - [ ] 用冷靜／流行／故障與重抽檢查 Hero、Vertical、Diagonal、Grid、Typewriter；日文長短句、英文、翻譯不被不當裁掉。
-- [ ] M/N 不改目前那句，下一個非空 cue 才生效；L 鎖定後重播、改風格、重抽不改該配置。
+- [ ] M/N 立即更新目前未鎖定的歌詞；間奏按 N 留到下一句；L 鎖定後重播、改風格、重抽不改該配置。
 - [ ] F6 儲存、F7 載入、換曲、回原曲：配置正確且不串到另一首歌。
 - [ ] 前後 seek、offset 調整、暫停／恢復、F 與 B 任意順序操作，不殘留上一句或黑幕。
 - [ ] Q–Y、六個原有歌詞 pad 皆能回到原模式，背景 1–6 與播放操作不受影響。
 - [ ] H / Esc 和視窗大小變更不改固定輸出解析度；退出 Play 不殘留 Canvas / RenderTexture / SRP callback。
-- [ ] LAN 頁面重新整理後看得到下方文字 PV 區塊；實體 iPad Safari 指令、狀態與原本 fader 都正確。
 - [ ] 1280×720 與 1920×1080、Density/Echo 高值、字型冷啟動，持續量測 FPS/P95/GC；記錄實測，不以舊版數字代替。
 
 建議截圖使用原創示範，不把第三方完整歌詞或商業音樂上傳進 PR。

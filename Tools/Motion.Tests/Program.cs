@@ -51,6 +51,29 @@ internal static class Program
             d.QueueMood(MotionMood.Calm); Check(Signature(d.Visit(0, "夜")) == before && d.HasPending);
             Check(d.Visit(1, "朝").mood == MotionMood.Calm && !d.HasPending);
         });
+        Test("selected mood changes the active unlocked lyric immediately", () => {
+            var d = new LyricMotionDirector(Plan()); d.Visit(0, "夜");
+            Check(d.SetMood(MotionMood.Calm));
+            Check(d.Plan.mood == MotionMood.Calm && d.Current.mood == MotionMood.Calm && !d.HasPending);
+            Check(d.Visit(0, "夜").mood == MotionMood.Calm);
+        });
+        Test("reroll changes the active unlocked lyric immediately", () => {
+            var d = new LyricMotionDirector(Plan()); var before = d.Visit(0, "夜");
+            Check(d.RerollCurrentOrNext());
+            Check(d.Current.revision == before.revision + 1 && d.Current.variation != before.variation);
+        });
+        Test("locked active lyric ignores immediate mood and reroll", () => {
+            var d = new LyricMotionDirector(Plan()); var before = d.Visit(0, "夜");
+            d.ToggleLock(); string signature = Signature(before);
+            Check(!d.SetMood(MotionMood.Glitch) && !d.RerollCurrentOrNext());
+            Check(Signature(d.Current) == signature && d.Plan.mood == MotionMood.Glitch);
+            Check(d.Visit(1, "朝").mood == MotionMood.Glitch);
+        });
+        Test("reroll without an active lyric applies to the next cue", () => {
+            var d = new LyricMotionDirector(Plan());
+            Check(!d.RerollCurrentOrNext() && d.HasPending);
+            Check(d.Visit(0, "夜").revision == 1 && !d.HasPending);
+        });
         Test("instrumental gaps do not consume commands", () => {
             var d = new LyricMotionDirector(Plan()); d.Visit(0, "夜"); d.QueueReroll();
             Check(d.Visit(-1, null) == null && d.HasPending);
