@@ -34,7 +34,7 @@ Unity 版本 6000.0.64f1。開啟專案後選 VJ Practice → Open Playable Stag
 
 輸入搜尋文字時不會觸發演出快捷鍵；Esc 離開文字輸入。獨立版擷取畫面存於 Application Support 的 AV Sketchbook/Nightflight VJ Practice/Verification。
 
-舞台特效 1–6 與 JIZURA look 可同時選用。A 讓來源 planner 自動編排；Q/W/E/R/T/Y 會覆寫當下歌詞的構圖與進退場，但不改歌曲 cut 時間。右側 BLEND 可調原舞台與 JIZURA 的比例。音訊分析使用 keijiro LASP；GPU 粒子使用適配 URP 的 keijiro LaspVfx 圖，不是全部仿作套件效果。
+舞台特效 1–6 與 JIZURA look 可同時選用。A 讓來源 planner 自動編排；Q/W/E/R/T/Y 會覆寫當下歌詞的構圖與進退場，但不改歌曲 cut 時間。右側 BLEND 可調原舞台與 JIZURA 的比例；左側 VENUE 可調紅色演唱會背景的強度，設為 0 即關閉。背景合成在最終輸出貼圖中，因此 F8 與 Recorder 會錄到相同畫面。F6/F7 會一起儲存與載入 VENUE 強度。音訊分析使用 keijiro LASP；GPU 粒子使用適配 URP 的 keijiro LaspVfx 圖，不是全部仿作套件效果。
 
 ## Editor 錄影
 

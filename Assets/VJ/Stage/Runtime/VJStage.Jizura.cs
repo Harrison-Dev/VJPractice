@@ -21,6 +21,7 @@ namespace VJPractice.Stage
             public int version;
             public bool blendStage;
             public float stageBlend;
+            public float venueBackdropMix;
             public int templateIndex;
             public int manualLook;
             public float energy, density, flow, echo, bpm;
@@ -146,9 +147,10 @@ namespace VJPractice.Stage
         {
             var look = new JizuraLiveLook
             {
-                version = 1,
+                version = 2,
                 blendStage = JizuraBlendStageVisuals,
                 stageBlend = Mathf.Clamp01(JizuraStageBlend),
+                venueBackdropMix = Mathf.Clamp01(VenueBackdropMix),
                 templateIndex = TemplateIndex,
                 manualLook = JizuraManualLook,
                 energy = Mathf.Clamp01(Energy), density = Mathf.Clamp01(Density),
@@ -166,7 +168,8 @@ namespace VJPractice.Stage
             if (!File.Exists(path)) return null;
             if (new FileInfo(path).Length > 65536) throw new FormatException("舞台配置檔案過大。");
             var look = JsonUtility.FromJson<JizuraLiveLook>(File.ReadAllText(path, Encoding.UTF8));
-            if (look == null || look.version != 1 || !LyricDocument.Finite(look.stageBlend)
+            if (look == null || (look.version != 1 && look.version != 2) || !LyricDocument.Finite(look.stageBlend)
+                || (look.version == 2 && !LyricDocument.Finite(look.venueBackdropMix))
                 || !LyricDocument.Finite(look.energy) || !LyricDocument.Finite(look.density)
                 || !LyricDocument.Finite(look.flow) || !LyricDocument.Finite(look.echo)
                 || !LyricDocument.Finite(look.bpm))
@@ -183,6 +186,7 @@ namespace VJPractice.Stage
             JizuraManualLook = look.manualLook;
             JizuraBlendStageVisuals = look.blendStage;
             JizuraStageBlend = Mathf.Clamp01(look.stageBlend);
+            VenueBackdropMix = look.version == 1 ? .65f : Mathf.Clamp01(look.venueBackdropMix);
             Energy = Mathf.Clamp01(look.energy); Density = Mathf.Clamp01(look.density);
             Flow = Mathf.Clamp01(look.flow); Echo = Mathf.Clamp01(look.echo);
             Bpm = Mathf.Clamp(look.bpm, 30f, 240f);

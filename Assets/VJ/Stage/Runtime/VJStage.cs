@@ -95,7 +95,7 @@ public sealed partial class VJStage:MonoBehaviour {
     }
     RenderTexture Make(int w,int h){var rt=new RenderTexture(w,h,0,RenderTextureFormat.ARGBHalf,RenderTextureReadWrite.Linear);rt.Create();var previous=RenderTexture.active;RenderTexture.active=rt;GL.Clear(true,true,Color.black);RenderTexture.active=previous;return rt;}
     void Release(){if(history){history.Release();Destroy(history);}if(next){next.Release();Destroy(next);}}
-    void OnDestroy(){MotionDispose();Release();if(renderMaterial)Destroy(renderMaterial);if(surface)Destroy(surface);if(flatTex)Destroy(flatTex);if(hoverTex)Destroy(hoverTex);}
+    void OnDestroy(){MotionDispose();ConsoleDispose();Release();if(renderMaterial)Destroy(renderMaterial);if(surface)Destroy(surface);if(flatTex)Destroy(flatTex);if(hoverTex)Destroy(hoverTex);}
     void Styles(){if(label!=null)return;label=new GUIStyle(GUI.skin.label){font=jpFont,fontSize=15,wordWrap=true};label.normal.textColor=new Color(.85f,.87f,.91f);small=new GUIStyle(label){fontSize=12};titleStyle=new GUIStyle(label){fontSize=25,fontStyle=FontStyle.Bold};button=new GUIStyle(GUI.skin.button){font=jpFont,fontSize=14,fixedHeight=30};lyricStyle=new GUIStyle(label){alignment=TextAnchor.MiddleCenter,fontSize=48,richText=false};}
     void OnGUI(){
         if(!ready)return;Styles();if(Event.current.type==EventType.KeyDown&&!Event.current.command&&!Event.current.control&&(!textEditing||Event.current.keyCode==KeyCode.Escape))HandleKey(Event.current.keyCode);GUI.matrix=Matrix4x4.TRS(Vector3.zero,Quaternion.identity,new Vector3(Screen.width/1440f,Screen.height/900f,1));

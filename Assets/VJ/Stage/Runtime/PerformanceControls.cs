@@ -10,28 +10,30 @@ public sealed partial class VJStage {
  void PerformanceUpdate(){float ms=Time.unscaledDeltaTime*1000;if(ms>0){frameTimes[frameIndex++%frameTimes.Length]=ms;frameCount=Mathf.Min(frameCount+1,frameTimes.Length);}if(Time.unscaledTime>nextStats&&frameCount>0){nextStats=Time.unscaledTime+1;var copy=frameTimes.Take(frameCount).OrderBy(v=>v).ToArray();Fps=1000/Mathf.Max(1,copy.Average());P95=copy[Mathf.Clamp(Mathf.FloorToInt(copy.Length*.95f),0,copy.Length-1)];}}
  void Nudge(float amount){switch(parameter){case 0:Energy=Mathf.Clamp01(Energy+amount);break;case 1:Density=Mathf.Clamp01(Density+amount);break;case 2:Flow=Mathf.Clamp01(Flow+amount);break;case 3:Echo=Mathf.Clamp01(Echo+amount);break;}}
  void DrawPerformancePage(){
-  Caption(1120,228,"JIZURA  /  LIVE LOOK",16,ink,230);
+  Caption(1120,224,"JIZURA",22,ink,190);Rule(1219,247,99,line);
   if(Action(1330,225,88,KineticLyrics?"K  ON":"K  OFF",KineticLyrics))ApplyControl("motion",KineticLyrics?0:1);
-  if(Action(1120,267,145,"A   AUTO",JizuraManualLook==0))SetJizuraManualLook(0);
-  if(Action(1273,267,145,"MANUAL",JizuraManualLook>0))SetJizuraManualLook(JizuraManualLook>0?JizuraManualLook:1);
-  Caption(1120,311,"演出手選 / 歌詞時間維持同步",11,muted,298);
+  if(Action(1120,265,145,"A   AUTO",JizuraManualLook==0))SetJizuraManualLook(0);
+  if(Action(1273,265,145,"MANUAL",JizuraManualLook>0))SetJizuraManualLook(JizuraManualLook>0?JizuraManualLook:1);
   string[] keys={"Q","W","E","R","T","Y"};
-  for(int i=0;i<6;i++)if(DeckPad(1120+(i%2)*153,337+(i/2)*68,145,keys[i],JizuraLookNames[i+1],JizuraManualLook==i+1))SetJizuraManualLook(i+1);
-  Caption(1120,549,$"BLEND  /  原舞台 {JizuraStageBlend:P0}",12,ink,298);
-  Fill(new Rect(1120,579,298,4),line);
-  Fill(new Rect(1120,579,298*(JizuraBlendStageVisuals?JizuraStageBlend:0f),4),cyan);
-  float nextBlend=GUI.HorizontalSlider(new Rect(1120,571,298,20),JizuraBlendStageVisuals?JizuraStageBlend:0f,0,1);
+  for(int i=0;i<6;i++)if(DeckPad(1120+(i%2)*153,312+(i/2)*83,145,keys[i],JizuraLookNames[i+1],JizuraManualLook==i+1,true,76))SetJizuraManualLook(i+1);
+  Caption(1120,562,$"BLEND  /  原舞台 {JizuraStageBlend:P0}",12,ink,298);
+  float blend=JizuraBlendStageVisuals?JizuraStageBlend:0f;
+  Fill(new Rect(1142,590,254,5),line);Fill(new Rect(1142,590,254*blend,5),cyan);
+  for(int i=0;i<17;i++)Fill(new Rect(1142+i*254/16f,582,1,5),muted);
+  Fill(new Rect(1138+254*blend,581,8,21),ink);Fill(new Rect(1140+254*blend,585,4,13),cyan);
+  CenterCaption(1117,581,20,"A",10,muted,15);CenterCaption(1399,581,20,"B",10,muted,15);
+  float nextBlend=DragSlider(new Rect(1142,582,254,16),blend);
   if(Mathf.Abs(nextBlend-(JizuraBlendStageVisuals?JizuraStageBlend:0f))>.0001f){JizuraBlendStageVisuals=true;JizuraStageBlend=nextBlend;KineticLyrics=true;}
   bool overlay=KineticLyrics&&JizuraBlendStageVisuals&&JizuraStageBlend>=.995f;
   bool hybrid=KineticLyrics&&JizuraBlendStageVisuals&&JizuraStageBlend>.005f&&JizuraStageBlend<.995f;
   bool native=KineticLyrics&&(!JizuraBlendStageVisuals||JizuraStageBlend<=.005f);
-  if(Action(1120,606,94,"7 疊加",overlay))SetJizuraLiveMode(0);
-  if(Action(1222,606,94,"8 混合",hybrid))SetJizuraLiveMode(1);
-  if(Action(1324,606,94,"9 全景",native))SetJizuraLiveMode(2);
-  if(Action(1120,650,145,"N  重抽"))ApplyControl("motionReroll",0);
-  if(Action(1273,650,145,"L  鎖定",KineticLyrics&&MotionLocked))ApplyControl("motionLock",0);
-  if(Action(1120,690,145,"F6  儲存"))ApplyControl("motionSave",0);
-  if(Action(1273,690,145,"F7  載入"))ApplyControl("motionLoad",0);
+  if(Action(1120,613,94,"7 疊加",overlay))SetJizuraLiveMode(0);
+  if(Action(1222,613,94,"8 混合",hybrid))SetJizuraLiveMode(1);
+  if(Action(1324,613,94,"9 全景",native))SetJizuraLiveMode(2);
+  if(Action(1120,652,145,"N  重抽"))ApplyControl("motionReroll",0);
+  if(Action(1273,652,145,"L  鎖定",KineticLyrics&&MotionLocked))ApplyControl("motionLock",0);
+  if(Action(1120,691,145,"F6  儲存"))ApplyControl("motionSave",0);
+  if(Action(1273,691,145,"F7  載入"))ApplyControl("motionLoad",0);
   if(Action(1120,730,298,"F8  輸出最終貼圖 PNG"))CaptureMotionOutput();
   if(Action(1120,770,145,"JIZURA Studio"))OpenJizuraStudio();
   if(Action(1273,770,145,"匯入專案"))PickJizuraProject();

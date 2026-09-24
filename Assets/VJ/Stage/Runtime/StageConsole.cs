@@ -9,15 +9,39 @@ public sealed partial class VJStage {
  [Serializable] class SearchResponse {public SearchResult[] items;}
  SearchResult[] results=Array.Empty<SearchResult>();string lastSpotifyTrack="";string query="Humanoid ZUTOMAYO";bool searching;int tab=3,lastLyric=-1;float manualScrollUntil;Vector2 libraryScroll;
  SpotifyTransport spotify;bool spotifyMode;BrowserTransport transport;bool browserMode;float songDuration=260;
- readonly Color ink=new Color(.95f,.94f,.95f),muted=new Color(.57f,.57f,.63f),cyan=new Color(1f,.19f,.20f),amber=new Color(1f,.55f,.32f),panel=new Color(.035f,.035f,.045f),line=new Color(.18f,.17f,.19f);
+ readonly Color ink=new Color(.92f,.95f,1f),muted=new Color(.58f,.65f,.73f),cyan=new Color(1f,.07f,.12f),amber=new Color(1f,.43f,.13f),panel=new Color(.018f,.024f,.033f),line=new Color(.17f,.22f,.27f);
  GUIStyle field,flat,mini;Texture2D flatTex,hoverTex;
+ readonly GUIStyle[] centeredLabels=new GUIStyle[65];readonly Texture2D[] iconMasks=new Texture2D[12];float venueResume=.65f;
  AudioClip waveformClip;readonly float[] waveformPeaks=new float[256];float[] waveformSamples;int waveformScan;bool waveformAvailable;
  void ConsoleInit(){PerformanceInit();spotify=gameObject.AddComponent<SpotifyTransport>();transport=gameObject.AddComponent<BrowserTransport>();Audio.Scan();Playing=false;Audio.Source.Pause();Message="先在 Spotify 播放 Humanoid，再按連接；或到音源選原創示範。";}
- void ConsoleStyles(){if(flat!=null)return;flatTex=Solid(new Color(.09f,.085f,.095f));hoverTex=Solid(new Color(.19f,.075f,.08f));flat=new GUIStyle{font=jpFont,fontSize=14,alignment=TextAnchor.MiddleCenter,padding=new RectOffset(9,9,4,4)};flat.normal.background=flatTex;flat.normal.textColor=ink;flat.hover.background=hoverTex;flat.hover.textColor=ink;flat.active.background=hoverTex;flat.active.textColor=ink;flat.focused=flat.hover;field=new GUIStyle(flat){alignment=TextAnchor.MiddleLeft,fontSize=15};mini=new GUIStyle(label){fontSize=11};button=flat;}
+ void ConsoleStyles(){if(flat!=null)return;flatTex=Solid(new Color(.055f,.065f,.08f));hoverTex=Solid(new Color(.14f,.035f,.045f));flat=new GUIStyle{font=jpFont,fontSize=13,alignment=TextAnchor.MiddleCenter,padding=new RectOffset(6,6,3,3)};flat.normal.textColor=ink;flat.hover.textColor=Color.white;flat.active.textColor=Color.white;flat.focused.textColor=ink;field=new GUIStyle(flat){alignment=TextAnchor.MiddleLeft,fontSize=15};field.normal.background=flatTex;field.focused.background=hoverTex;mini=new GUIStyle(label){fontSize=11};button=flat;}
  Texture2D Solid(Color c){var t=new Texture2D(1,1);t.SetPixel(0,0,c.linear);t.Apply();return t;}
  void Caption(float x,float y,string value,int size=12,Color? color=null,float width=290){size=Mathf.Clamp(size,1,64);var s=cachedLabels[size]??(cachedLabels[size]=new GUIStyle(label){fontSize=size,wordWrap=true});s.normal.textColor=color??ink;GUI.Label(new Rect(x,y,width,78),value,s);}
- bool Action(float x,float y,float w,string text,bool selected=false){Fill(new Rect(x-1,y-1,w+2,36),selected?cyan:line);return GUI.Button(new Rect(x,y,w,34),text,flat);}
- bool DeckPad(float x,float y,float w,string number,string name,bool selected){Fill(new Rect(x-1,y-1,w+2,65),selected?cyan:line);Fill(new Rect(x,y,w,63),selected?new Color(.18f,.035f,.045f):new Color(.055f,.055f,.065f));Caption(x+10,y+5,number,11,selected?cyan:muted,w-18);Caption(x+10,y+28,name,16,ink,w-18);return GUI.Button(new Rect(x,y,w,63),GUIContent.none,GUIStyle.none);}
+ void CenterCaption(float x,float y,float w,string value,int size=12,Color? color=null,float h=22){size=Mathf.Clamp(size,1,64);var s=centeredLabels[size]??(centeredLabels[size]=new GUIStyle(label){fontSize=size,alignment=TextAnchor.MiddleCenter,wordWrap=false});s.normal.textColor=color??ink;GUI.Label(new Rect(x,y,w,h),value,s);}
+ void Rule(float x,float y,float w,Color c){Fill(new Rect(x,y,w,1),c);}
+ void Frame(Rect r,Color c,float thickness=1){Fill(new Rect(r.x,r.y,r.width,thickness),c);Fill(new Rect(r.x,r.yMax-thickness,r.width,thickness),c);Fill(new Rect(r.x,r.y,thickness,r.height),c);Fill(new Rect(r.xMax-thickness,r.y,thickness,r.height),c);}
+ void ConsoleDispose(){for(int i=0;i<iconMasks.Length;i++)if(iconMasks[i])Destroy(iconMasks[i]);}
+ static void MaskLine(Color32[] pixels,float x1,float y1,float x2,float y2,float thickness=1.6f){float dx=x2-x1,dy=y2-y1,len=Mathf.Max(.001f,dx*dx+dy*dy),radius=thickness*.5f+.8f;int minX=Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(x1,x2)-radius),0,63),maxX=Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(x1,x2)+radius),0,63),minY=Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(y1,y2)-radius),0,63),maxY=Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(y1,y2)+radius),0,63);for(int y=minY;y<=maxY;y++)for(int x=minX;x<=maxX;x++){float t=Mathf.Clamp01(((x+.5f-x1)*dx+(y+.5f-y1)*dy)/len),xx=x1+t*dx,yy=y1+t*dy,d=Mathf.Sqrt((x+.5f-xx)*(x+.5f-xx)+(y+.5f-yy)*(y+.5f-yy));byte alpha=(byte)(Mathf.Clamp01(thickness*.5f+.65f-d)*255);int at=y*64+x;if(alpha>pixels[at].a)pixels[at]=new Color32(255,255,255,alpha);}}
+ static void MaskArc(Color32[] p,float x,float y,float radius,float start=0,float end=Mathf.PI*2,int steps=32,float thickness=1.5f){float px=x+Mathf.Cos(start)*radius,py=y+Mathf.Sin(start)*radius;for(int i=1;i<=steps;i++){float a=Mathf.Lerp(start,end,i/(float)steps),nx=x+Mathf.Cos(a)*radius,ny=y+Mathf.Sin(a)*radius;MaskLine(p,px,py,nx,ny,thickness);px=nx;py=ny;}}
+ static void MaskCube(Color32[] p){MaskLine(p,32,9,48,19);MaskLine(p,48,19,32,29);MaskLine(p,32,29,16,19);MaskLine(p,16,19,32,9);MaskLine(p,16,19,16,47);MaskLine(p,48,19,48,47);MaskLine(p,16,47,32,56);MaskLine(p,48,47,32,56);MaskLine(p,32,29,32,56);}
+ Texture2D MakeIcon(int kind){var p=new Color32[64*64];switch(kind){
+  case 0:MaskLine(p,32,8,9,48,2);MaskLine(p,32,8,55,48,2);MaskLine(p,9,48,55,48,2);MaskLine(p,32,8,32,48);MaskLine(p,9,48,32,30);MaskLine(p,55,48,32,30);break;
+  case 1:MaskArc(p,32,32,23);MaskArc(p,32,32,17);MaskArc(p,32,32,11);break;
+  case 2:for(int j=0;j<58;j++){float t=j/57f*4.6f*Mathf.PI,tn=(j+1)/57f*4.6f*Mathf.PI,r=4+23*j/57f,rn=4+23*(j+1)/57f;MaskLine(p,32+Mathf.Cos(t)*r,32+Mathf.Sin(t)*r,32+Mathf.Cos(tn)*rn,32+Mathf.Sin(tn)*rn,1.6f);}break;
+  case 3:MaskCube(p);break;
+  case 4:for(int j=0;j<72;j++){float a=j*2.399963f,r=26*Mathf.Sqrt(j/71f),x=32+Mathf.Cos(a)*r,y=32+Mathf.Sin(a)*r;MaskLine(p,x,y,x,y,j%9==0?2.5f:1.3f);}break;
+  case 5:MaskArc(p,25,36,17);MaskArc(p,39,29,17);break;
+  case 6:for(int j=0;j<4;j++){float x=10+j*11,h=13+(j%3)*7;MaskLine(p,x-7,49,x+4,49-h);MaskLine(p,x+4,49-h,x+15,49);}MaskLine(p,5,49,59,49);break;
+  case 7:for(int j=0;j<5;j++){float y=18+j*7;for(int k=0;k<32;k++){float x=8+k*1.5f,nx=x+1.5f;MaskLine(p,x,y+Mathf.Sin(k*.34f+j*.26f)*4,nx,y+Mathf.Sin((k+1)*.34f+j*.26f)*4,1.3f);}}break;
+  case 8:MaskCube(p);MaskLine(p,32,8,32,55);break;
+  case 9:for(int j=-11;j<=11;j++){float x=32+j*2.2f,span=Mathf.Sqrt(Mathf.Max(0,24*24-(j*2.2f)*(j*2.2f)));for(float y=-span;y<=span;y+=4)MaskLine(p,x,32+y,x,32+y,1.3f);}break;
+  case 10:for(int j=0;j<4;j++)MaskArc(p,32,32,7+j*6);break;
+  case 11:MaskLine(p,21,50,34,7);MaskLine(p,34,7,51,41);MaskLine(p,51,41,21,50);MaskLine(p,21,50,43,25);MaskLine(p,43,25,51,41);MaskLine(p,6,40,20,17);MaskLine(p,20,17,28,54);break;
+ }var maskTexture=new Texture2D(64,64,TextureFormat.RGBA32,false,true){filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp,hideFlags=HideFlags.HideAndDontSave};maskTexture.SetPixels32(p);maskTexture.Apply(false,true);return maskTexture;}
+ void Chrome(Rect r,bool selected,bool hot){Color edge=selected?cyan:hot?new Color(.42f,.56f,.68f):line;Fill(new Rect(r.x-4,r.y-4,r.width+8,r.height+8),selected?new Color(1f,.02f,.03f,.08f):Color.clear);Fill(new Rect(r.x-2,r.y-2,r.width+4,r.height+4),selected?new Color(1f,.03f,.06f,.24f):Color.clear);Fill(r,selected?new Color(.15f,.015f,.025f):hot?new Color(.075f,.088f,.105f):new Color(.04f,.047f,.058f));Frame(r,edge,selected?2:1);Rule(r.x+4,r.y+4,r.width-8,selected?new Color(1f,.34f,.36f,.38f):new Color(.55f,.67f,.77f,.13f));if(selected){Fill(new Rect(r.x+8,r.yMax-3,r.width-16,2),new Color(1f,.10f,.12f,.6f));Fill(new Rect(r.x+3,r.y+3,2,2),Color.white);}}
+ bool Action(float x,float y,float w,string text,bool selected=false){Rect r=new Rect(x,y,w,34);Chrome(r,selected,r.Contains(Event.current.mousePosition));return GUI.Button(r,text,flat);}
+ bool DeckPad(float x,float y,float w,string number,string name,bool selected,bool look=false,float height=94){Rect r=new Rect(x,y,w,height);Chrome(r,selected,r.Contains(Event.current.mousePosition));Color icon=selected?new Color(1f,.16f,.18f):look&&number=="E"?amber:new Color(.69f,.85f,.99f);Caption(x+8,y+4,number,10,selected?cyan:muted,w-16);DrawCardIcon(x+w*.5f,y+(look?height*.38f:39),look?22:27,look,look?0:int.Parse(number)-1,icon,look?number:null);CenterCaption(x+3,y+height-23,w-6,name,look?13:14,selected?ink:new Color(.82f,.88f,.96f),20);return GUI.Button(r,GUIContent.none,GUIStyle.none);}
+ void DrawCardIcon(float x,float y,float s,bool look,int index,Color c,string key){if(Event.current.type!=EventType.Repaint)return;if(look)index=key=="Q"?0:key=="W"?1:key=="E"?2:key=="R"?3:key=="T"?4:5;int id=(look?6:0)+index;if(iconMasks[id]==null)iconMasks[id]=MakeIcon(id);Color previous=GUI.color;GUI.color=c.linear;GUI.DrawTexture(new Rect(x-s,y-s,s*2,s*2),iconMasks[id],ScaleMode.StretchToFill,true);GUI.color=previous;}
  void ScanWaveform(){
   AudioClip clip=Audio!=null&&!Audio.External&&Audio.Source?Audio.Source.clip:null;
   if(clip!=waveformClip){waveformClip=clip;waveformScan=0;waveformAvailable=clip&&clip.samples>=512;Array.Clear(waveformPeaks,0,waveformPeaks.Length);}
@@ -31,38 +55,45 @@ public sealed partial class VJStage {
    waveformPeaks[waveformScan]=Mathf.Sqrt(Mathf.Clamp01(peak));
   }
  }
- float Fader(float y,string name,float value){Caption(22,y,name,11,parameter==Mathf.RoundToInt((y-350)/56)?cyan:muted,160);Caption(184,y,value.ToString("F2"),12,amber,55);Rect r=new Rect(22,y+29,216,18);Fill(new Rect(r.x,r.y+7,r.width,3),line);Fill(new Rect(r.x,r.y+7,r.width*value,3),cyan);Fill(new Rect(r.x+r.width*value-3,r.y+2,6,13),ink);var e=Event.current;int id=GUIUtility.GetControlID(FocusType.Passive,r);if(e.type==EventType.MouseDown&&r.Contains(e.mousePosition)){GUIUtility.hotControl=id;e.Use();}if(GUIUtility.hotControl==id&&(e.type==EventType.MouseDrag||e.type==EventType.MouseDown)){value=Mathf.Clamp01((e.mousePosition.x-r.x)/r.width);e.Use();}if(e.rawType==EventType.MouseUp&&GUIUtility.hotControl==id)GUIUtility.hotControl=0;return value;}
+ float DragSlider(Rect r,float value){var e=Event.current;int id=GUIUtility.GetControlID(FocusType.Passive,r);if(e.type==EventType.MouseDown&&r.Contains(e.mousePosition)){GUIUtility.hotControl=id;value=Mathf.Clamp01((e.mousePosition.x-r.x)/r.width);e.Use();}if(GUIUtility.hotControl==id&&e.type==EventType.MouseDrag){value=Mathf.Clamp01((e.mousePosition.x-r.x)/r.width);e.Use();}if(e.rawType==EventType.MouseUp&&GUIUtility.hotControl==id)GUIUtility.hotControl=0;return value;}
+ float DeckFader(float y,string name,float value,bool venue=false){Caption(22,y,name,11,muted,150);if(!venue)Caption(189,y,value.ToString("F2"),12,cyan,49);Rect r=new Rect(22,y+22,216,21);for(int i=0;i<25;i++)Fill(new Rect(22+i*9,y+27,1,5),new Color(.24f,.30f,.36f));Fill(new Rect(r.x,r.y+9,r.width,3),line);Fill(new Rect(r.x,r.y+9,r.width*value,3),venue?amber:cyan);float hx=r.x+r.width*value;Fill(new Rect(hx-5,r.y+1,10,20),new Color(.63f,.70f,.78f));Fill(new Rect(hx-3,r.y+3,6,15),ink);Fill(new Rect(hx-3,r.y+16,6,2),value>0?cyan:muted);return DragSlider(r,value);}
  void DrawConsole(){
   ConsoleStyles();
-  Fill(new Rect(0,0,1440,66),new Color(.025f,.024f,.03f));
+  Fill(new Rect(0,0,1440,66),new Color(.014f,.018f,.025f));
   Fill(new Rect(0,66,260,834),panel);Fill(new Rect(1100,66,340,834),panel);
-  Fill(new Rect(260,728,840,172),new Color(.032f,.03f,.038f));
+  Fill(new Rect(260,728,840,172),new Color(.025f,.028f,.035f));
   Fill(new Rect(260,66,1,834),line);Fill(new Rect(1099,66,1,834),line);
-  Fill(new Rect(0,65,1440,1),line);Fill(new Rect(0,62,1440,2),new Color(.32f,.055f,.07f));
-  Caption(22,12,"NIGHTFLIGHT",26,ink,250);
-  Fill(new Rect(282,24,16,2),cyan);Caption(310,22,"LIVE VJ / LASER DECK",12,amber,340);
-  Fill(new Rect(786,25,7,7),Playing?cyan:muted);
-  Caption(805,21,spotifyMode?(spotify.Connected?"SPOTIFY SYNC":"SPOTIFY WAITING"):browserMode?(transport.Connected?"PLAYER SYNC":"PLAYER WAITING"):Audio.External?"EXTERNAL AUDIO":"LOCAL AUDIO",12,ink,300);
+  Fill(new Rect(0,65,1440,1),line);Fill(new Rect(0,62,1440,2),new Color(.36f,.04f,.06f));
+  Caption(22,8,"NIGHTFLIGHT",30,ink,260);
+  Fill(new Rect(304,19,3,25),cyan);Caption(333,15,"LIVE",21,cyan,80);Caption(423,23,"VISUALS / MUSIC / HIGHER TOGETHER",10,muted,350);
+  Fill(new Rect(790,26,7,7),Playing?cyan:muted);Caption(807,20,spotifyMode?(spotify.Connected?"SPOTIFY SYNC":"SPOTIFY WAITING"):browserMode?(transport.Connected?"PLAYER SYNC":"PLAYER WAITING"):Audio.External?"EXTERNAL AUDIO":"LOCAL AUDIO",12,ink,280);
+  for(int i=0;i<3;i++)Fill(new Rect(1137+i*10,20,3,22),cyan);
   if(Action(1210,16,208,"OUTPUT ONLY   H"))CleanOutput=true;
 
-  Caption(22,89,"STAGE FX  /  1–6",12,ink,216);Fill(new Rect(22,113,216,1),line);
+  Caption(22,85,"FX",21,ink,75);Rule(67,106,171,line);
   string[] names={"漂浮","斜光","回聲","隧道","矩陣","流體"};
-  for(int i=0;i<6;i++)if(DeckPad(22+(i%2)*113,126+(i/2)*71,103,(i+1).ToString("00"),names[i],TemplateIndex==i))SetTemplate(i);
-  Caption(22,347,"LIVE MODULATION",11,muted,216);
-  Energy=Fader(370,"ENERGY / 強度",Energy);Density=Fader(426,"DENSITY / 密度",Density);
-  Flow=Fader(482,"FLOW / 流速",Flow);Echo=Fader(538,"ECHO / 殘影",Echo);
-  if(Action(22,599,103,"FREEZE  F",Frozen))Frozen=!Frozen;
-  if(Action(135,599,103,"BLACKOUT  B",Blackout))Blackout=!Blackout;
-  Caption(22,646,Audio.External?"SIGNAL  /  EXTERNAL":"SIGNAL  /  LOCAL",11,muted,216);
-  for(int i=0;i<3;i++){float v=Mathf.Clamp01(Audio.Bands[i]);Caption(22,674+i*34,new[]{"LOW","MID","HIGH"}[i],11,muted,60);Fill(new Rect(78,683+i*34,126,5),line);Fill(new Rect(78,683+i*34,126*v,5),i==2?amber:cyan);Caption(211,673+i*34,v.ToString("F1"),11,ink,40);}
-  Caption(22,806,$"{Bpm:F0} BPM  /  V TAP",20,cyan,216);
-  Caption(22,839,$"{Fps:F0} FPS   ·   P95 {P95:F1} ms",11,muted,216);
+  for(int i=0;i<6;i++)if(DeckPad(22+(i%2)*113,122+(i/2)*105,103,(i+1).ToString("00"),names[i],TemplateIndex==i))SetTemplate(i);
+  Caption(22,442,"LIVE MODULATION",11,muted,216);Rule(22,459,216,line);
+  Energy=DeckFader(465,"ENERGY / 強度",Energy);Density=DeckFader(510,"DENSITY / 密度",Density);
+  Flow=DeckFader(555,"FLOW / 流速",Flow);Echo=DeckFader(600,"ECHO / 殘影",Echo);
+  VenueBackdropMix=DeckFader(645,"VENUE / 背景",VenueBackdropMix,true);
+  if(VenueBackdropMix>.005f)venueResume=VenueBackdropMix;
+  Rect venueSwitch=new Rect(169,643,69,21);Fill(venueSwitch,VenueBackdropMix>.005f?new Color(.22f,.04f,.05f):new Color(.05f,.06f,.07f));Frame(venueSwitch,VenueBackdropMix>.005f?cyan:line);if(GUI.Button(venueSwitch,VenueBackdropMix>.005f?"ON":"OFF",flat)){if(VenueBackdropMix>.005f){venueResume=VenueBackdropMix;VenueBackdropMix=0;}else VenueBackdropMix=Mathf.Max(.05f,venueResume);}
+  if(Action(22,693,103,"FREEZE  F",Frozen))Frozen=!Frozen;
+  if(Action(135,693,103,"BLACKOUT  B",Blackout))Blackout=!Blackout;
+  Caption(22,737,Audio.External?"SIGNAL / EXTERNAL":"SIGNAL / LOCAL",11,muted,216);
+  for(int i=0;i<3;i++){float v=Mathf.Clamp01(Audio.Bands[i]);Caption(22,761+i*23,new[]{"LOW","MID","HIGH"}[i],10,muted,45);Fill(new Rect(68,772+i*23,132,4),line);Fill(new Rect(68,772+i*23,132*v,4),i==2?amber:cyan);Caption(208,760+i*23,v.ToString("F1"),10,ink,40);}
+  Caption(22,831,$"{Bpm:F0} BPM  /  V TAP",18,cyan,216);
+  Caption(22,861,$"{Fps:F0} FPS   ·   P95 {P95:F1} ms",10,muted,216);
 
   Fill(new Rect(272,78,816,1),line);Fill(new Rect(272,681,816,1),line);
-  Caption(283,85,"CAM 1  /  MAIN OUTPUT",11,muted,300);
-  Caption(790,85,templates[TemplateIndex].title,11,amber,285);
-  Caption(283,695,spotifyMode?spotify.Title+" / "+spotify.Artist:browserMode?"HUMANOID / ZUTOMAYO":Audio.External?"EXTERNAL AUDIO":Audio.Source.clip==Audio.demo?"ORIGINAL DEMO / 原創練習音軌":Audio.Source.clip?.name??"NO AUDIO",12,ink,780);
+  Caption(283,85,"CAM 1  /  MAIN OUTPUT",11,ink,300);Caption(792,85,templates[TemplateIndex].title,11,amber,285);
+  Rule(283,117,12,ink);Fill(new Rect(283,117,1,12),ink);Rule(1064,117,12,ink);Fill(new Rect(1075,117,1,12),ink);
+  Rule(283,665,12,ink);Fill(new Rect(283,653,1,12),ink);Rule(1064,665,12,ink);Fill(new Rect(1075,653,1,12),ink);
+  Caption(283,696,spotifyMode?spotify.Title+" / "+spotify.Artist:browserMode?"HUMANOID / ZUTOMAYO":Audio.External?"EXTERNAL AUDIO":Audio.Source.clip==Audio.demo?"ORIGINAL DEMO / 原創練習音軌":Audio.Source.clip?.name??"NO AUDIO",12,ink,780);
   DrawLibrary();DrawTransport();
+  Caption(22,885,"NIGHTFLIGHT  v1.1  /  UNITY LIVE VJ",9,muted,440);
+  Caption(1161,885,"FOR A BRIGHTER NIGHT",9,muted,260);Rule(1386,894,32,line);
   textEditing=GUI.GetNameOfFocusedControl()=="Search"||GUI.GetNameOfFocusedControl()=="ImportPath";
  }
  void DrawLibrary(){Caption(1120,91,"SOURCE  /  TRACK SYNC",12,ink);if(Action(1120,122,298,"SPOTIFY  /  連接與同步"))OpenSpotify();string[] tabs={"搜尋","歌詞","音源","演出"};for(int i=0;i<4;i++)if(Action(1120+i*76,176,70,tabs[i],tab==i)){tab=i;libraryScroll=Vector2.zero;}
@@ -75,25 +106,28 @@ public sealed partial class VJStage {
  void DrawTransport(){
   if(Event.current.type==EventType.Repaint)ScanWaveform();
   Fill(new Rect(260,728,840,1),line);
-  Caption(283,747,$"{Bpm:F0}",32,cyan,110);Caption(371,764,"BPM",11,muted,80);
-  Caption(506,756,LyricDocument.Format(Position),24,ink,180);
-  Caption(700,765,"/ "+LyricDocument.Format(Duration),13,muted,150);
-  if(Action(870,750,101,Playing?"PAUSE":"PLAY"))TogglePlay();
+  Caption(283,743,"BPM",10,muted,100);Caption(283,756,$"{Bpm:F0}",31,cyan,120);
+  for(int i=0;i<5;i++)Fill(new Rect(374,760+i*5,3,2),i<Mathf.Clamp(Mathf.RoundToInt(Audio.Bands[0]*5),0,5)?cyan:line);
+  Caption(474,750,LyricDocument.Format(Position),23,ink,180);
+  Caption(674,759,"/ "+LyricDocument.Format(Duration),13,muted,170);
+  if(Action(870,750,101,Playing?"❚❚  PAUSE":"▶  PLAY",Playing))TogglePlay();
   if(Action(979,750,98,"HOME"))Seek(0);
-  Rect track=new Rect(283,790,793,45);
-  Fill(new Rect(track.x,track.y+36,track.width,2),line);
-  for(int i=0;i<17;i++)Fill(new Rect(track.x+track.width*i/16f,track.y+39,1,5),line);
+  Rect track=new Rect(283,791,793,43);
+  Fill(track,new Color(.012f,.017f,.024f));Frame(track,line);
+  Fill(new Rect(track.x+2,track.y+21,track.width-4,1),new Color(.20f,.25f,.30f));
   float progress=Mathf.Clamp01(Position/Duration);
-  if(waveformAvailable){float step=track.width/waveformPeaks.Length;for(int i=0;i<waveformScan;i++){float h=2+waveformPeaks[i]*29;Fill(new Rect(track.x+i*step,track.y+18-h*.5f,Mathf.Max(1,step-1),h),i/(float)waveformPeaks.Length<progress?cyan:muted);}}
-  Fill(new Rect(track.x,track.y+36,track.width*progress,2),cyan);
-  for(int i=0;i<Document.lines.Count;i++){var c=Document.lines[i];if(c.startTime<0)continue;float x=track.x+track.width*Mathf.Clamp01((c.startTime+Document.offsetSeconds)/Duration);Fill(new Rect(x,track.y+39,2,7),i==Document.ActiveAt(Position)?amber:muted);}
-  Fill(new Rect(track.x+track.width*progress-1,track.y-3,2,43),ink);
+  if(waveformAvailable){float step=(track.width-4)/waveformPeaks.Length;for(int i=0;i<waveformScan;i++){float h=2+waveformPeaks[i]*31;float x=track.x+2+i*step;Color wave=i/(float)waveformPeaks.Length<progress?i%3==0?amber:cyan:new Color(.66f,.77f,.88f);Fill(new Rect(x,track.y+21-h*.5f,Mathf.Max(1,step-1),h),wave);}}
+  else CenterCaption(track.x,track.y+13,track.width,Audio.External?"EXTERNAL SIGNAL  /  NO TRACK WAVEFORM":"LOAD LOCAL AUDIO FOR WAVEFORM",10,muted,17);
+  Fill(new Rect(track.x+2,track.y+40,(track.width-4)*progress,2),cyan);
+  for(int i=0;i<Document.lines.Count;i++){var c=Document.lines[i];if(c.startTime<0)continue;float x=track.x+track.width*Mathf.Clamp01((c.startTime+Document.offsetSeconds)/Duration);Fill(new Rect(x,track.y+44,1,4),i==Document.ActiveAt(Position)?amber:muted);}
+  if(Document.lines.Count>0)for(int i=0;i<4;i++){var c=Document.lines[Mathf.Clamp((i+1)*Document.lines.Count/5,0,Document.lines.Count-1)];if(c.startTime<0)continue;float x=track.x+track.width*Mathf.Clamp01((c.startTime+Document.offsetSeconds)/Duration);Color cueColor=i==1?amber:i==2?new Color(.4f,.78f,1f):ink;Fill(new Rect(x-7,track.y-8,14,13),cueColor);CenterCaption(x-7,track.y-9,14,(i+1).ToString(),9,new Color(.02f,.03f,.04f),13);Fill(new Rect(x,track.y+5,1,32),cueColor);}
+  Fill(new Rect(track.x+track.width*progress-1,track.y,2,43),ink);
   var e=Event.current;if((e.type==EventType.MouseDown||e.type==EventType.MouseDrag)&&track.Contains(e.mousePosition)){Seek((e.mousePosition.x-track.x)/track.width*Duration);e.Use();}
-  if(Action(283,846,114,"− 0.1 SEC"))Document.offsetSeconds-=.1f;
-  Caption(411,855,$"OFFSET {Document.offsetSeconds:+0.00;-0.00;0.00}s",12,amber,200);
-  if(Action(625,846,114,"+ 0.1 SEC"))Document.offsetSeconds+=.1f;
-  if(Action(747,846,175,"NEXT CUE / Enter"))Stamp();
-  Caption(937,855,"[ / ]  調整",11,muted,139);
+  if(Action(283,850,114,"− 0.1 SEC"))Document.offsetSeconds-=.1f;
+  Caption(411,859,$"OFFSET {Document.offsetSeconds:+0.00;-0.00;0.00}s",12,amber,200);
+  if(Action(625,850,114,"+ 0.1 SEC"))Document.offsetSeconds+=.1f;
+  if(Action(747,850,175,"NEXT CUE / Enter"))Stamp();
+  Caption(937,859,"[ / ]  調整",11,muted,139);
  }
  void ConnectBlackHole(){int i=Array.FindIndex(Audio.Devices,d=>d.Name.IndexOf("BlackHole",StringComparison.OrdinalIgnoreCase)>=0);if(i>=0){Audio.Select(i);Message="已選 BlackHole；系統輸出需為 VJ Monitor + BlackHole。";}else Message="找不到 BlackHole，請確認已安裝並重開 Unity。";}
  public void OpenSpotify(){browserMode=false;spotifyMode=true;Audio.Source.Stop();Audio.Scan();ConnectBlackHole();spotify.Enabled=true;Message="macOS 若詢問，請允許 Unity 控制 Spotify。";lastSpotifyTrack="";}

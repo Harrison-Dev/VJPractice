@@ -7,12 +7,13 @@ This is an early, playable prototype. Its current interface is primarily in Trad
 ## Features
 
 - **Six visual scenes:** Drift, Prism, Orbit, Tunnel, Matrix, and Fluid.
-- **Six independent lyric treatments:** subtitle, diagonal, orbit, typewriter, character rain, and poster â€” 36 visual/lyric combinations.
+- **Native JIZURA lyrics:** planned cuts plus six hand-selected live looks, layered with the original audio-reactive stage visuals.
+- **Laser Deck venue layer:** red concert artwork in the final VJ output; its intensity is adjustable in the operator console and can be set to zero.
 - Spotify desktop playback position, track metadata, play/pause, and seek through its macOS scripting interface. Polling runs in a background helper.
 - System audio analysis through BlackHole and keijiro LASP, with local audio import and an original 48-second practice track as alternatives.
 - LRCLIB lyric search and candidate selection; LRC, enhanced LRC, SRT, VTT, plain text, and Folia JSON import.
 - Lyric offset adjustment, manual line stamping, session persistence, and an Editor lyric workspace.
-- A Unity Editor performance panel with scene pads, lyric controls, four parameters, transport controls, blackout, freeze, and performance telemetry.
+- A Unity Editor Laser Deck with illustrated scene and look pads, four parameters, waveform transport, blackout, freeze, and performance telemetry.
 
 ## Quick start
 
@@ -66,7 +67,7 @@ In Play Mode, play a local audio clip through Unity, then choose **VJ Practice â
 
 Folia JSON import preserves supported word timing, translation, romanization, and offset fields. The Editor Lyric Studio also supports importing the current lyric snapshot from Folia's local API; that connection has not been tested against a running Folia instance.
 
-**The six lyric treatments are custom Unity implementations, not ports of Folia's style renderers.** Folia styles such as Classic, Cadenza, Partita, Fume, and Monet, and Folia visual presets, are not implemented as compatible modes. Background/harmony vocals are not rendered.
+The live lyric renderer uses the JIZURA Unity port. Folia styles such as Classic, Cadenza, Partita, Fume, and Monet, and Folia visual presets, are not implemented as compatible modes. Background/harmony vocals are not rendered.
 
 Enhanced LRC and supported Folia data can provide word timing. With ordinary line-timed lyrics, character animation is estimated within each line. There is no vocal recognition or forced-alignment model. Use offsets and manual stamping to correct alignment. Saving a session does not write changes back to a lyric provider.
 

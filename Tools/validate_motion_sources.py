@@ -48,6 +48,10 @@ check("endContextRendering += EndContext" in compositor and "endContextRendering
       "URP output callback has symmetric cleanup")
 check("(frozen() && hasFrame)" in compositor and "blackout() ? black : presented" in compositor,
       "freeze retains the composited frame and blackout uses a separate texture")
+check('Resources.Load<Texture2D>("LaserVenue")' in compositor and
+      'Graphics.Blit(live, presented, venueMaterial)' in compositor and
+      '() => VenueBackdropMix' in bridge,
+      "venue art is blended into the final output texture")
 check("const int PoolSize = 32" in renderer and "used >= labels.Length" in renderer,
       "native text pool has an explicit draw budget")
 check("if(ApplyMotionControl(action,value))return;" in controls and
@@ -80,6 +84,8 @@ assets = list((ROOT / "Assets/VJ/Stage/Runtime/Motion").glob("*.cs")) + [
     ROOT / "Assets/VJ/Stage/Editor/JizuraValidation.cs",
     ROOT / "Assets/VJ/Stage/Editor/VJStageRecorder.cs",
     ROOT / "Assets/VJ/Stage/Resources/JizuraDemo.json",
+    ROOT / "Assets/VJ/Stage/Resources/LaserVenue.png",
+    ROOT / "Assets/VJ/Stage/Resources/LaserVenueComposite.shader",
     ROOT / "Assets/VJ/Stage/ThirdParty/JIZURA-LICENSE.txt",
 ]
 guids = []

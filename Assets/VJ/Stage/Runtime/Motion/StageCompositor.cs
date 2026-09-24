@@ -11,6 +11,9 @@ namespace VJPractice.Stage.Motion
         readonly Camera camera;
         readonly Camera displayCamera;
         readonly Func<bool> frozen, blackout;
+        readonly Func<float> venueMix;
+        readonly Texture2D venueTexture;
+        readonly Material venueMaterial;
         readonly RenderTexture originalTarget;
         readonly Rect originalRect;
         RenderTexture live, presented, black;
@@ -18,10 +21,14 @@ namespace VJPractice.Stage.Motion
         public RenderTexture Output => active ? (blackout() ? black : presented) : null;
         public bool HasFrame => hasFrame;
 
-        public StageCompositor(Camera camera, Func<bool> frozen, Func<bool> blackout)
+        public StageCompositor(Camera camera, Func<bool> frozen, Func<bool> blackout, Func<float> venueMix = null)
         {
             this.camera = camera ? camera : throw new ArgumentNullException(nameof(camera));
             this.frozen = frozen; this.blackout = blackout;
+            this.venueMix = venueMix;
+            venueTexture = Resources.Load<Texture2D>("LaserVenue");
+            var venueShader = Resources.Load<Shader>("LaserVenueComposite");
+            if (venueTexture && venueShader) venueMaterial = new Material(venueShader) { hideFlags = HideFlags.HideAndDontSave };
             originalTarget = camera.targetTexture; originalRect = camera.rect;
             // The stage camera renders only to a texture in kinetic mode. Keep a
             // display camera alive so the Editor and Player have a real backbuffer
@@ -67,7 +74,22 @@ namespace VJPractice.Stage.Motion
             // URP has submitted its camera commands by this point. Scheduling another
             // command on that ScriptableRenderContext leaves the presented RT black.
             var previous = RenderTexture.active;
-            try { Graphics.Blit(live, presented); }
+            try
+            {
+                float mix = venueMix == null ? 0f : Mathf.Clamp01(venueMix());
+                if (venueMaterial && mix > .001f)
+                {
+                    float sourceAspect = venueTexture.width / (float)venueTexture.height;
+                    float outputAspect = presented.width / (float)presented.height;
+                    venueMaterial.SetTexture("_VenueTex", venueTexture);
+                    venueMaterial.SetFloat("_Mix", mix);
+                    venueMaterial.SetVector("_VenueScale", sourceAspect > outputAspect
+                        ? new Vector4(outputAspect / sourceAspect, 1f, 0f, 0f)
+                        : new Vector4(1f, sourceAspect / outputAspect, 0f, 0f));
+                    Graphics.Blit(live, presented, venueMaterial);
+                }
+                else Graphics.Blit(live, presented);
+            }
             finally { RenderTexture.active = previous; }
             hasFrame = true;
         }
@@ -95,6 +117,7 @@ namespace VJPractice.Stage.Motion
             RenderPipelineManager.endContextRendering -= EndContext;
             if (camera) { camera.targetTexture = originalTarget; camera.rect = originalRect; }
             if (displayCamera) UnityEngine.Object.Destroy(displayCamera.gameObject);
+            if (venueMaterial) UnityEngine.Object.Destroy(venueMaterial);
             Release(); active = false;
         }
     }

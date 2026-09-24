@@ -11,6 +11,7 @@ namespace VJPractice.Stage
     public sealed partial class VJStage
     {
         public bool KineticLyrics = true;
+        [Range(0f, 1f)] public float VenueBackdropMix = .65f;
         public int KineticWidth = 1280, KineticHeight = 720;
         public bool KineticReady => KineticLyrics && motionCompositor != null && (motionRenderer != null || jizuraRenderer != null);
         public RenderTexture KineticOutput => KineticReady ? motionCompositor.Output : null;
@@ -31,7 +32,7 @@ namespace VJPractice.Stage
             try
             {
                 motionRenderer = new KineticLyricRenderer(transform, outputCamera, japaneseFont);
-                motionCompositor = new StageCompositor(outputCamera, () => Frozen, () => Blackout);
+                motionCompositor = new StageCompositor(outputCamera, () => Frozen, () => Blackout, () => VenueBackdropMix);
                 try { JizuraInit(); }
                 catch (Exception jizuraError)
                 {
