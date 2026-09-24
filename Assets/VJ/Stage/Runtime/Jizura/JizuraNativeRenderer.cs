@@ -13,6 +13,8 @@ namespace VJPractice.Stage.Jizura
         public float backgroundOpacity;
         /// <summary>Keep the lyric animation but omit JIZURA artwork for a clean Stage overlay.</summary>
         public bool textOnly;
+        /// <summary>0 uses the planned cut; 1–6 apply a live performance look without changing its timing.</summary>
+        public int manualLook;
         public float energy, density, flow, echo;
         public Vector4 bands;
 
@@ -52,6 +54,9 @@ namespace VJPractice.Stage.Jizura
         readonly Sprite circleSprite, ringSprite, backdropSprite;
         readonly Dictionary<JizuraCut, string[]> glyphCache = new Dictionary<JizuraCut, string[]>();
         JizuraPlan timeline;
+        readonly JizuraCut manualCut = new JizuraCut();
+        JizuraCut manualSource;
+        int manualLookIndex;
         int labelCount, rectCount, frontRectCount;
         bool frontLayer, decorLayer;
         JizuraLiveInput liveInput = JizuraLiveInput.Opaque;
@@ -70,6 +75,7 @@ namespace VJPractice.Stage.Jizura
         }
         public int VisibleTextObjects { get { return labelCount; } }
         public JizuraCut CurrentCut { get; private set; }
+        public string CurrentLayout { get; private set; } = "";
         /// <summary>Original IDs which currently use a visible native approximation or fallback.</summary>
         public string CurrentUnsupported { get; private set; } = "";
 
@@ -203,6 +209,7 @@ namespace VJPractice.Stage.Jizura
             timeline = plan;
             glyphCache.Clear();
             CurrentCut = null;
+            manualSource = null;
         }
 
         /// <summary>Draws solely from song time. Pause and arbitrary backward seeks are deterministic.</summary>
@@ -227,8 +234,10 @@ namespace VJPractice.Stage.Jizura
             // JIZURA stepDur(): koma drawings/sec, or project fps when koma is disabled.
             int rate = plan.fx != null && plan.fx.koma > 0 ? plan.fx.koma : Mathf.Max(1, plan.fps);
             float t = Mathf.Floor(Mathf.Max(0, songTime) * rate + 1e-5f) / rate;
-            JizuraCut cut = CutAt(plan.cuts, t);
-            CurrentCut = cut;
+            JizuraCut sourceCut = CutAt(plan.cuts, t);
+            CurrentCut = sourceCut;
+            JizuraCut cut = LiveCut(sourceCut, liveInput.manualLook);
+            CurrentLayout = cut == null ? "" : cut.layout;
             CurrentUnsupported = Unsupported(cut);
             if (!Schemes.ContainsKey(plan.styleKey ?? ""))
                 CurrentUnsupported += (CurrentUnsupported.Length > 0 ? "、" : "") + "風格 " + (plan.styleKey ?? "(null)");
@@ -287,6 +296,7 @@ namespace VJPractice.Stage.Jizura
         public void Clear()
         {
             CurrentCut = null;
+            CurrentLayout = "";
             CurrentUnsupported = "";
             labelCount = rectCount = frontRectCount = 0;
             frontLayer = decorLayer = false;
@@ -307,7 +317,39 @@ namespace VJPractice.Stage.Jizura
             value.bands.y = Safe01(value.bands.y, 0);
             value.bands.z = Safe01(value.bands.z, 0);
             value.bands.w = Safe01(value.bands.w, 0);
+            value.manualLook = Mathf.Clamp(value.manualLook, 0, 6);
             return value;
+        }
+
+        static readonly string[] LiveLayouts = { "", "huge", "diag", "ring", "wave", "tile", "labels" };
+        static readonly string[] LiveEnters = { "", "pop", "slice", "spin", "type", "scramble", "zoom" };
+        static readonly string[] LiveHolds = { "", "jitter", "drift", "breathe", "wave", "glitchtick", "still" };
+        static readonly string[] LiveExits = { "", "shrink", "slice", "drift", "fall", "glitch", "wipe" };
+        static readonly string[][] LiveDecor = { Array.Empty<string>(), Array.Empty<string>(), new[] { "slash" },
+            new[] { "rings" }, new[] { "dots" }, new[] { "grid" }, new[] { "brackets" } };
+
+        JizuraCut LiveCut(JizuraCut source, int look)
+        {
+            if (source == null || source.line < 0 || look <= 0) return source;
+            if (!ReferenceEquals(source, manualSource) || manualLookIndex != look)
+            {
+                glyphCache.Remove(manualCut);
+                manualSource = source;
+                manualLookIndex = look;
+                manualCut.index = source.index; manualCut.line = source.line; manualCut.scheme = source.scheme;
+                manualCut.text = source.text; manualCut.lineText = source.lineText; manualCut.note = source.note;
+                manualCut.start = source.start; manualCut.end = source.end; manualCut.seed = source.seed;
+                manualCut.emph = source.emph; manualCut.recap = source.recap; manualCut.stagger = source.stagger;
+                manualCut.bg = source.bg; manualCut.cam = source.cam; manualCut.treat = source.treat;
+                manualCut.trans = source.trans;
+                manualCut.layout = LiveLayouts[look]; manualCut.enter = LiveEnters[look];
+                manualCut.hold = LiveHolds[look]; manualCut.exit = LiveExits[look];
+                manualCut.decor = LiveDecor[look];
+                float duration = Mathf.Max(.05f, source.end - source.start);
+                manualCut.inDur = Mathf.Min(source.inDur, duration * .42f);
+                manualCut.outDur = Mathf.Min(source.outDur > 0 ? source.outDur : duration * .28f, duration * .42f);
+            }
+            return manualCut;
         }
 
         static float Safe01(float value, float fallback)

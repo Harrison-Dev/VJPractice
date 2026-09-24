@@ -17,7 +17,11 @@ Unity 版本 6000.0.64f1。開啟專案後選 VJ Practice → Open Playable Stag
 | 按鍵 | 操作 |
 |---|---|
 | 1–6 | 漂浮、斜光、回聲、隧道、矩陣、流體 |
-| Q W E R T Y | 字幕、斜切、環繞、打字、字雨、海報 |
+| A | JIZURA 自動編排 |
+| Q W E R T Y | 手選 JIZURA：重擊、斜切、環繞、字流、拼貼、海報；歌詞時間仍同步 |
+| 7 / 8 / 9 | 文字疊加／與原舞台混合／JIZURA 全景 |
+| K / N / L | 歌詞輸出開關／重抽本句／鎖定本句 |
+| F6 / F7 / F8 | 儲存配置／載入配置／擷取最終輸出 PNG |
 | ↑ ↓ | 選擇強度／密度／流速／殘影 |
 | ← → | 微調；Shift 加大步距 |
 | Space / Home | 播放暫停／回到開頭 |
@@ -30,7 +34,11 @@ Unity 版本 6000.0.64f1。開啟專案後選 VJ Practice → Open Playable Stag
 
 輸入搜尋文字時不會觸發演出快捷鍵；Esc 離開文字輸入。獨立版擷取畫面存於 Application Support 的 AV Sketchbook/Nightflight VJ Practice/Verification。
 
-視覺與歌詞分開選，可組合 36 種搭配。建議先試 4 + T（隧道／字雨）、2 + Y（斜光／海報）、6 + E（流體／環繞）。音訊分析使用 keijiro LASP；GPU 粒子使用適配 URP 的 keijiro LaspVfx 圖，不是全部仿作套件效果。
+舞台特效 1–6 與 JIZURA look 可同時選用。A 讓來源 planner 自動編排；Q/W/E/R/T/Y 會覆寫當下歌詞的構圖與進退場，但不改歌曲 cut 時間。右側 BLEND 可調原舞台與 JIZURA 的比例。音訊分析使用 keijiro LASP；GPU 粒子使用適配 URP 的 keijiro LaspVfx 圖，不是全部仿作套件效果。
+
+## Editor 錄影
+
+在 Play Mode 播放 Unity 本地音樂後，用「VJ Practice → Recording → Start VJ + Local Music」開始，再用「Stop Recording」輸出 `Recordings/` 內的 MP4。錄到的是最終 VJ 畫面與 Unity 音訊，不含控制台。Spotify／外部音源未進 Unity mixer，這個功能無法把它們的聲音收進影片。Unity Recorder 錄音時可能把聲音送給 Recorder，而不從系統喇叭播出。
 
 ## 效能驗證
 

@@ -13,13 +13,16 @@ namespace VJPractice.Stage
         // Mix the existing StageVisual/particle camera under native JIZURA type.
         // Zero keeps JIZURA's palette background; one exposes the stage fully.
         public bool JizuraBlendStageVisuals = true;
-        [Range(0f, 1f)] public float JizuraStageBlend = .55f;
+        [Range(0f, 1f)] public float JizuraStageBlend = .75f;
+        [Range(0, 6)] public int JizuraManualLook;
+        public static readonly string[] JizuraLookNames = { "自動", "重擊", "斜切", "環繞", "字流", "拼貼", "海報" };
         [Serializable] sealed class JizuraLiveLook
         {
             public int version;
             public bool blendStage;
             public float stageBlend;
             public int templateIndex;
+            public int manualLook;
             public float energy, density, flow, echo, bpm;
         }
         static string JizuraLiveLookPath => Path.Combine(Application.persistentDataPath, "CurrentJizura.live.json");
@@ -147,6 +150,7 @@ namespace VJPractice.Stage
                 blendStage = JizuraBlendStageVisuals,
                 stageBlend = Mathf.Clamp01(JizuraStageBlend),
                 templateIndex = TemplateIndex,
+                manualLook = JizuraManualLook,
                 energy = Mathf.Clamp01(Energy), density = Mathf.Clamp01(Density),
                 flow = Mathf.Clamp01(Flow), echo = Mathf.Clamp01(Echo), bpm = Bpm
             };
@@ -167,6 +171,8 @@ namespace VJPractice.Stage
                 || !LyricDocument.Finite(look.flow) || !LyricDocument.Finite(look.echo)
                 || !LyricDocument.Finite(look.bpm))
                 throw new FormatException("舞台配置版本或數值無效。");
+            if (look.manualLook < 0 || look.manualLook >= JizuraLookNames.Length)
+                throw new FormatException("JIZURA 手選模式無效。");
             return look;
         }
 
@@ -174,6 +180,7 @@ namespace VJPractice.Stage
         {
             if (look == null) return;
             SetTemplate(look.templateIndex);
+            JizuraManualLook = look.manualLook;
             JizuraBlendStageVisuals = look.blendStage;
             JizuraStageBlend = Mathf.Clamp01(look.stageBlend);
             Energy = Mathf.Clamp01(look.energy); Density = Mathf.Clamp01(look.density);
@@ -195,6 +202,7 @@ namespace VJPractice.Stage
             {
                 backgroundOpacity = JizuraBlendStageVisuals ? 1f - Mathf.Clamp01(JizuraStageBlend) : 1f,
                 textOnly = JizuraBlendStageVisuals && JizuraStageBlend >= .995f,
+                manualLook = JizuraManualLook,
                 energy = Energy,
                 density = Density,
                 flow = Flow,
@@ -208,7 +216,8 @@ namespace VJPractice.Stage
             }
             MotionStatus = active == null ? "JIZURA / 等待下一個 cut"
                 : "JIZURA / " + (active.line < 0 ? "標題" : "第 " + (active.line + 1) + " 行")
-                    + " · " + active.layout + " / " + active.enter + " / " + active.exit;
+                    + " · " + (JizuraManualLook == 0 ? "AUTO " + active.layout + " / " + active.enter + " / " + active.exit
+                        : "MANUAL " + JizuraLookNames[JizuraManualLook] + " / " + jizuraRenderer.CurrentLayout);
             if (!string.IsNullOrEmpty(jizuraRenderer.CurrentUnsupported))
                 MotionStatus += "\n未移植：" + jizuraRenderer.CurrentUnsupported;
         }
@@ -242,6 +251,9 @@ namespace VJPractice.Stage
             if (ActiveJizuraProject == null) return false;
             switch (action)
             {
+                case "jizuraLook":
+                    SetJizuraManualLook(Mathf.Clamp(Mathf.RoundToInt(value), 0, 6));
+                    return true;
                 case "motionMood":
                     KineticLyrics = true;
                     int mood = Mathf.Clamp((int)value, 0, 2);
@@ -298,6 +310,18 @@ namespace VJPractice.Stage
                     return true;
                 default: return false;
             }
+        }
+
+        public void SetJizuraManualLook(int look)
+        {
+            JizuraManualLook = Mathf.Clamp(look, 0, 6);
+            KineticLyrics = true;
+            // Full text-only overlay deliberately hides JIZURA layouts. Reveal the
+            // live stage mix when choosing a look so the operator sees the change.
+            if (JizuraManualLook > 0 && JizuraBlendStageVisuals && JizuraStageBlend >= .995f)
+                JizuraStageBlend = .75f;
+            Message = JizuraManualLook == 0 ? "JIZURA 已切回自動分鏡。"
+                : "JIZURA 手選：" + JizuraLookNames[JizuraManualLook] + "；歌詞時間仍與音樂同步。";
         }
     }
 }

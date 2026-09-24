@@ -40,7 +40,7 @@ public sealed partial class VJStage:MonoBehaviour {
         jpFont=japaneseFont;
         sessionPath=Path.Combine(Application.persistentDataPath,"PracticeSession.json");
         SetTemplate(0);primary=templates[0].primary;accent=templates[0].accent;background=templates[0].background;
-        Application.targetFrameRate=60;Application.runInBackground=true;ready=true;ConsoleInit();MotionInit();
+        Application.targetFrameRate=60;Application.runInBackground=true;ready=true;ConsoleInit();SetTemplate(3);MotionInit();
     }
     public void SetTemplate(int index){if(templates==null||templates.Length==0)return;TemplateIndex=Mathf.Clamp(index,0,templates.Length-1);var p=templates[TemplateIndex];Energy=p.energy;Density=p.density;Flow=p.flow;Echo=p.echo;}
     public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;JizuraFromDocument(doc);}
@@ -71,7 +71,7 @@ public sealed partial class VJStage:MonoBehaviour {
     void HandleKey(KeyCode key){
         if(HandleMotionKey(key)){Event.current.Use();return;}
         switch(key){
-            case KeyCode.Alpha1:SetTemplate(0);break;case KeyCode.Alpha2:SetTemplate(1);break;case KeyCode.Alpha3:SetTemplate(2);break;case KeyCode.Alpha4:SetTemplate(3);break;case KeyCode.Alpha5:SetTemplate(4);break;case KeyCode.Alpha6:SetTemplate(5);break;case KeyCode.Q:LyricMode=0;break;case KeyCode.W:LyricMode=1;break;case KeyCode.E:LyricMode=2;break;case KeyCode.R:LyricMode=3;break;case KeyCode.T:LyricMode=4;break;case KeyCode.Y:LyricMode=5;break;case KeyCode.UpArrow:parameter=(parameter+3)%4;break;case KeyCode.DownArrow:parameter=(parameter+1)%4;break;case KeyCode.LeftArrow:Nudge(Event.current.shift?-.1f:-.02f);break;case KeyCode.RightArrow:Nudge(Event.current.shift?.1f:.02f);break;
+            case KeyCode.Alpha1:SetTemplate(0);break;case KeyCode.Alpha2:SetTemplate(1);break;case KeyCode.Alpha3:SetTemplate(2);break;case KeyCode.Alpha4:SetTemplate(3);break;case KeyCode.Alpha5:SetTemplate(4);break;case KeyCode.Alpha6:SetTemplate(5);break;case KeyCode.UpArrow:parameter=(parameter+3)%4;break;case KeyCode.DownArrow:parameter=(parameter+1)%4;break;case KeyCode.LeftArrow:Nudge(Event.current.shift?-.1f:-.02f);break;case KeyCode.RightArrow:Nudge(Event.current.shift?.1f:.02f);break;
             case KeyCode.H:CleanOutput=!CleanOutput;break;case KeyCode.Escape:CleanOutput=false;textEditing=false;GUI.FocusControl(null);break;
             case KeyCode.B:Blackout=!Blackout;break;case KeyCode.F:Frozen=!Frozen;break;
             case KeyCode.Space:TogglePlay();break;case KeyCode.Home:Seek(0);break;case KeyCode.Return:Stamp();break;
@@ -113,56 +113,22 @@ public sealed partial class VJStage:MonoBehaviour {
 #endif
     }
     void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(p.EndsWith(".jizura.json",StringComparison.OrdinalIgnoreCase)){try{LoadJizuraProject(p);}catch(Exception ex){Message="JIZURA 匯入失敗："+ex.Message;}return;}if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}
-    void WriteDiagnostics(){string directory=(Application.isEditor?Path.GetFullPath(Path.Combine(Application.dataPath,"../Verification")):Path.Combine(Application.persistentDataPath,"Verification"));Directory.CreateDirectory(directory);File.WriteAllText(Path.Combine(directory,"LiveDiagnostics.txt"),$"time={DateTime.UtcNow:o}\nsource={Audio.Status}\nexternal={Audio.External}\nspotifyConnected={spotify.Connected}\nspotifyPlaying={spotify.Playing}\nposition={Position:F3}\nduration={Duration:F3}\nbands={Audio.Bands}\nparticles={particles.aliveParticleCount}\nlyricSource={Document.source}\ncues={Document.lines.Count}\nactiveCue={Document.ActiveAt(Position)}\ntemplate={TemplateIndex}\nlyricMode={LyricMode}\nfps={Fps:F1}\np95ms={P95:F2}\n");Message="診斷已儲存。";}
+    void WriteDiagnostics(){string directory=(Application.isEditor?Path.GetFullPath(Path.Combine(Application.dataPath,"../Verification")):Path.Combine(Application.persistentDataPath,"Verification"));Directory.CreateDirectory(directory);File.WriteAllText(Path.Combine(directory,"LiveDiagnostics.txt"),$"time={DateTime.UtcNow:o}\nsource={Audio.Status}\nexternal={Audio.External}\nspotifyConnected={spotify.Connected}\nspotifyPlaying={spotify.Playing}\nposition={Position:F3}\nduration={Duration:F3}\nbands={Audio.Bands}\nparticles={particles.aliveParticleCount}\nlyricSource={Document.source}\ncues={Document.lines.Count}\nactiveCue={Document.ActiveAt(Position)}\ntemplate={TemplateIndex}\njizuraManualLook={JizuraManualLook}\nfps={Fps:F1}\np95ms={P95:F2}\n");Message="診斷已儲存。";}
+    // Minimal fail-safe caption when the native JIZURA compositor is unavailable.
+    // The selectable legacy subtitle techniques have been removed from the live deck.
     void DrawLyrics(Rect area){
-        int index=Document.ActiveAt(Position);if(index<0)return;
-        var cue=Document.lines[index];if(string.IsNullOrWhiteSpace(cue.text))return;
-        float now=Position-Document.offsetSeconds,age=now-cue.startTime,remaining=cue.endTime-now;
-        float alpha=Mathf.Clamp01(age*3)*Mathf.Clamp01(remaining*3);
-        int layout=LyricMode;
+        int index=Document==null?-1:Document.ActiveAt(Position);
+        if(index<0)return;
+        var cue=Document.lines[index];
+        if(string.IsNullOrWhiteSpace(cue.text))return;
+        float now=Position-Document.offsetSeconds;
+        float alpha=Mathf.Clamp01((now-cue.startTime)*3)*Mathf.Clamp01((cue.endTime-now)*3);
         GUI.BeginGroup(area);
-        var color=new Color(.95f,.96f,.98f,alpha);
-        if(layout==0){
-            if(index>0)Text(new Rect(70,area.height*.27f,area.width-140,45),Document.lines[index-1].text,22,new Color(.7f,.78f,.85f,.24f));
-            DrawAnimatedLine(new Rect(60,area.height*.39f,area.width-120,140),cue,now,44,color,0);
-            Text(new Rect(80,area.height*.65f,area.width-160,45),cue.translation,19,new Color(.65f,.85f,.87f,alpha*.85f));
-            if(index+1<Document.lines.Count)Text(new Rect(70,area.height*.76f,area.width-140,40),Document.lines[index+1].text,21,new Color(.7f,.78f,.85f,.22f));
-        }else if(layout==1){
-            var matrix=GUI.matrix;GUIUtility.RotateAroundPivot(-5,new Vector2(area.width*.5f,area.height*.5f));
-            Text(new Rect(65,area.height*.26f,area.width-130,180),cue.text,64,new Color(accent.r,accent.g,accent.b,.08f*alpha));
-            DrawAnimatedLine(new Rect(45,area.height*.37f,area.width-90,170),cue,now,57,color,1);
-            GUI.matrix=matrix;Text(new Rect(80,area.height*.73f,area.width-160,50),cue.translation,19,new Color(1,.65f,.74f,alpha));
-        }else if(layout==2){
-            Text(new Rect(60,area.height*.23f,area.width-120,50),"声 と 光 / VOICE IN ORBIT",14,new Color(.6f,.9f,.82f,.6f));
-            DrawAnimatedLine(new Rect(75,area.height*.42f,area.width-150,140),cue,now,49,color,2);
-            Text(new Rect(80,area.height*.7f,area.width-160,50),cue.romanization.Length>0?cue.romanization:cue.translation,19,new Color(.65f,.85f,.75f,alpha));
-        }
-        if(layout==3){
-            var elements=StringInfo.ParseCombiningCharacters(cue.text);int n=Mathf.Clamp(Mathf.CeilToInt(Mathf.InverseLerp(cue.startTime,cue.endTime,now)*elements.Length*1.25f),0,elements.Length);string typed=n==elements.Length?cue.text:cue.text.Substring(0,elements[n]);Text(new Rect(65,area.height*.38f,area.width-130,180),typed+(Mathf.Repeat(Time.unscaledTime,1)<.5f?" ▏":""),43,color);Fill(new Rect(80,area.height*.7f,(area.width-160)*Mathf.InverseLerp(cue.startTime,cue.endTime,now),2),accent);
-        }else if(layout==4){
-            var indices=StringInfo.ParseCombiningCharacters(cue.text);float cell=Mathf.Min(52,(area.width-120)/Mathf.Max(1,Mathf.Min(indices.Length,14)));for(int j=0;j<indices.Length;j++){string ch=cue.text.Substring(indices[j],(j+1<indices.Length?indices[j+1]:cue.text.Length)-indices[j]);float delay=j*.045f;float arrival=Mathf.Clamp01((age-delay)*3);float x=60+(j%14)*cell;float y=area.height*.38f+(j/14)*cell-Mathf.Pow(1-arrival,2)*180;Text(new Rect(x,y,cell,cell*1.4f),ch,Mathf.RoundToInt(cell*.85f),new Color(color.r,color.g,color.b,color.a*arrival));}
-        }else if(layout==5){
-            float entrance=1-Mathf.Pow(1-Mathf.Clamp01(age*3),3);Fill(new Rect(38,area.height*.33f,6,area.height*.37f),accent);int size=Mathf.Clamp(76-cue.text.Length,28,62);Text(new Rect(65+(1-entrance)*100,area.height*.33f,area.width-130,area.height*.37f),cue.text,size,color);Text(new Rect(70,area.height*.75f,area.width-140,42),cue.translation,18,new Color(accent.r,accent.g,accent.b,alpha));
-        }
+        Text(new Rect(50,area.height*.38f,area.width-100,area.height*.24f),cue.text,
+            Mathf.Clamp(64-cue.text.Length,24,50),new Color(.96f,.96f,.98f,alpha));
         GUI.EndGroup();
     }
     void Text(Rect r,string s,int size,Color c){lyricStyle.fontSize=size;lyricStyle.normal.textColor=c;GUI.Label(r,s??"",lyricStyle);}
-    void DrawAnimatedLine(Rect r,LyricCue cue,float now,int size,Color baseColor,int mode){
-        // Fit long lines before animating complete Unicode text elements.
-        string text=cue.text.Replace("\n"," ");lyricStyle.fontSize=size;
-        float total=lyricStyle.CalcSize(new GUIContent(text)).x;
-        if(total>r.width){size=Mathf.Max(15,Mathf.FloorToInt(size*r.width/total));lyricStyle.fontSize=size;total=lyricStyle.CalcSize(new GUIContent(text)).x;}
-        var chars=new List<string>();var enumerator=StringInfo.GetTextElementEnumerator(text);while(enumerator.MoveNext())chars.Add((string)enumerator.Current);
-        float x=r.x+(r.width-total)*.5f,progress=Mathf.InverseLerp(cue.startTime,cue.endTime,now)*chars.Count;
-        int cursor=0;
-        foreach(string ch in chars){
-            float w=lyricStyle.CalcSize(new GUIContent(ch)).x;
-            float start=cue.startTime+(cue.endTime-cue.startTime)*cursor/Mathf.Max(1,chars.Count);
-            if(cue.words.Length>0){int count=0;foreach(var word in cue.words){int n=new StringInfo(word.text??"").LengthInTextElements;if(cursor<count+n){start=word.startTime+(word.endTime-word.startTime)*(cursor-count)/Mathf.Max(1,n);break;}count+=n;}}
-            float sung=Mathf.Clamp01((now-start)*8),lift=mode==1?Mathf.Sin(Mathf.Clamp01((now-start)*3)*Mathf.PI)*-12:mode==2?Mathf.Sin(cursor*.4f+visualTime)*4:0;
-            var c=Color.Lerp(baseColor*.6f,Color.Lerp(baseColor,accent,.7f),sung);c.a=baseColor.a;
-            Text(new Rect(x,r.y+lift,w+3,r.height),ch,size,c);x+=w;cursor++;
-        }
-    }
+
 }
 }

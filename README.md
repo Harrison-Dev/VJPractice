@@ -40,7 +40,12 @@ No commercial recordings or downloaded full song lyrics are bundled. The include
 | Key | Action |
 | --- | --- |
 | `1`–`6` | Select visual scene |
-| `Q W E R T Y` | Select lyric treatment |
+| `A` | Return JIZURA lyric looks to automatic planning |
+| `Q W E R T Y` | Select six live JIZURA looks; lyric timing stays synced |
+| `7`–`9` | Text overlay / stage mix / JIZURA full view |
+| `K` | Toggle kinetic lyrics |
+| `N` / `L` | Reroll / lock the current lyric line |
+| `F6` / `F7` / `F8` | Save live project / load / export final output PNG |
 | Up / Down | Select energy, density, flow, or echo |
 | Left / Right | Adjust selected parameter; hold Shift for larger steps |
 | Space / Home | Play or pause / return to the beginning |
@@ -52,6 +57,10 @@ No commercial recordings or downloaded full song lyrics are bundled. The include
 | `P` / F9 | Save a screenshot / diagnostic snapshot |
 
 Focus the Game view when using the Editor. Performance shortcuts are suspended while typing into a text field; Esc exits text input.
+
+## Record in the Unity Editor
+
+In Play Mode, play a local audio clip through Unity, then choose **VJ Practice → Recording → Start VJ + Local Music**. Choose **Stop Recording** to save an MP4 under `Recordings/`. The Recorder captures the final VJ output without the operator controls and includes audio from Unity. Spotify and external audio are outside Unity's audio mixer, so this recording workflow does not include their sound. Unity Recorder may route audio to the recording instead of the system speakers while capturing.
 
 ## Lyric timing and Folia compatibility
 

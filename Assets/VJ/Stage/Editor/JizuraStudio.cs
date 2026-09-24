@@ -783,6 +783,9 @@ public sealed class JizuraStudio : EditorWindow
         GUI.enabled = true;
         if (!stage.JizuraBlendStageVisuals)
             EditorGUILayout.LabelField("目前僅顯示 JIZURA 原背景與文字。", EditorStyles.miniLabel);
+        int manualLook = EditorGUILayout.Popup("現場歌詞構圖", stage.JizuraManualLook, VJStage.JizuraLookNames);
+        if (manualLook != stage.JizuraManualLook) stage.SetJizuraManualLook(manualLook);
+        EditorGUILayout.LabelField("A 自動；Q/W/E/R/T/Y 手選 6 種 JIZURA look。只覆寫視覺，歌曲 cut 時間與逐句設定仍保留。", EditorStyles.wordWrappedMiniLabel);
         EditorGUILayout.LabelField("Play Mode 即時調整；舞台 F6／F7 同時存取 CurrentJizura.jizura.json 與 CurrentJizura.live.json。上方『儲存 .jizura.json』只存原版專案，不包含舞台混合配置。", EditorStyles.wordWrappedMiniLabel);
         EditorGUILayout.SelectableLabel(Path.Combine(Application.persistentDataPath, "CurrentJizura.live.json"), EditorStyles.miniLabel, GUILayout.Height(18));
         StageTemplate[] templates = stage.templates;
@@ -810,7 +813,7 @@ public sealed class JizuraStudio : EditorWindow
     {
         stage.KineticLyrics = true;
         stage.JizuraBlendStageVisuals = mode != 2;
-        stage.JizuraStageBlend = mode == 0 ? 1f : mode == 1 ? .55f : 0f;
+        stage.JizuraStageBlend = mode == 0 ? 1f : mode == 1 ? .75f : 0f;
     }
 
     void DrawCutTimeline()

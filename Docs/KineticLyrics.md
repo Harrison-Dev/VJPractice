@@ -9,7 +9,7 @@
 
 1. 使用專案既有 Unity **6000.0.64f1 / URP 17.0.4**，執行 `VJ Practice → Open Playable Stage`，按 Play。
 2. 在右側「音源」選 **原創示範**。不需要 Spotify、BlackHole、外部歌曲或 AI API。
-3. 切到「演出」。新版預設啟用「K 自動文字 PV」；若正在傳統模式，按 K 開啟。
+3. 切到「演出」。預設啟用 JIZURA；按 K 可切換歌詞輸出。
 4. 按 H 看乾淨輸出；按 Esc 回到操作台。按 F8 儲存**最終合成貼圖**，而不是包含操作台的螢幕截圖。
 
 目前是每句歌詞一個演出 cut，含五種版面：Hero 巨大文字、Vertical 直排、Diagonal 斜排海報、Grid 重複字陣、Typewriter 打字。
@@ -20,14 +20,14 @@
 
 | 操作 | 鍵盤 | 說明 |
 | --- | --- | --- |
-| 文字 PV / 傳統模式切換 | K | 傳統六模式的實作不變 |
+| 文字 PV 開關 | K | 開啟或關閉 JIZURA 歌詞輸出 |
 | 切換風格 | M | 冷靜、流行、故障；立即套用到目前未鎖定的歌詞 |
 | 重抽歌詞 | N | 立即重抽目前未鎖定的歌詞；間奏時則重抽下一句 |
 | 鎖定 / 解鎖目前配置 | L | 鎖住版面、動作、配色風格與 variation，不鎖音樂播放 |
 | 儲存本曲配置 | F6 | 儲存 seed、已產生的 cut、revision 與鎖定 |
 | 載入本曲配置 | F7 | 不符合本曲文字或 schema 的檔案會被拒絕 |
 | 最終貼圖 PNG | F8 | Editor 存 `Verification/`；Player 存 persistentDataPath/Verification |
-| 六種傳統模式 | Q W E R T Y | 同時關閉文字 PV，保留舊字幕／斜切／環繞／打字／字雨／海報 |
+| JIZURA 自動／手選 | A / Q W E R T Y | A 用原 planner；其餘即時指定六種 live look，保留歌詞 cut 時間 |
 | 背景、凍結、黑幕、全螢幕 | 1–6、F、B、H | 沿用操作概念；新模式的凍結與黑幕也作用於輸出貼圖 |
 
 右側面板能操作風格、重抽、鎖定、儲存與載入。
@@ -60,12 +60,12 @@
 `VJStage.Output` 此時也回傳同一張貼圖。預設 1280×720、16:9；Inspector 可改 KineticWidth / KineticHeight，上限 1920×1080。
 操作台預覽使用 letterbox，不因 H 切換而改變貼圖大小。
 
-**切回六種傳統模式時，Output 仍維持舊的背景 history 契約，並不包含 IMGUI 歌詞。**
+**六種傳統字幕模式已移除。** 當原生輸出無法初始化時，Game 視窗只顯示單一簡單字幕作為備援。
 需要完整影像時請使用新文字 PV 模式和 `KineticOutput`（關閉時為 null）；不要把 fallback 的舊 Output 當成全畫面。
 本次刻意不重寫六種舊 renderer，避免把範圍擴成一次全面 UI 遷移。
 
 新輸出使用三張貼圖：live camera、held/presented frame、blackout。B 的優先權高於 F；黑幕解除後，凍結中的 held frame 不會被黑色覆蓋。
-沒有新增 Syphon、NDI、Spout、錄影編碼器或透明影片輸出；F8 是 PNG 靜態驗收出口。
+F8 是 PNG 靜態驗收出口。Editor 現已整合 Unity Recorder，可錄最終 VJ 輸出與 Unity 本地音樂；Syphon、NDI、Spout 與透明影片輸出仍未加入。
 
 ## 維護與限制
 

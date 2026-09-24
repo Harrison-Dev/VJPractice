@@ -159,8 +159,6 @@ namespace VJPractice.Stage
         public bool ApplyMotionControl(string action, float value)
         {
             if (!LyricDocument.Finite(value)) return true;
-            // Selecting a classic style leaves the new renderer.
-            if (action == "lyric") { KineticLyrics = false; return false; }
             if (ActiveJizuraPlan != null && ApplyJizuraControl(action, value)) return true;
             switch (action)
             {
@@ -220,8 +218,13 @@ namespace VJPractice.Stage
                 case KeyCode.Alpha7: SetJizuraLiveMode(0); return true;
                 case KeyCode.Alpha8: SetJizuraLiveMode(1); return true;
                 case KeyCode.Alpha9: SetJizuraLiveMode(2); return true;
-                case KeyCode.Q: case KeyCode.W: case KeyCode.E: case KeyCode.R: case KeyCode.T: case KeyCode.Y:
-                    KineticLyrics = false; return false;
+                case KeyCode.A: SetJizuraManualLook(0); return true;
+                case KeyCode.Q: SetJizuraManualLook(1); return true;
+                case KeyCode.W: SetJizuraManualLook(2); return true;
+                case KeyCode.E: SetJizuraManualLook(3); return true;
+                case KeyCode.R: SetJizuraManualLook(4); return true;
+                case KeyCode.T: SetJizuraManualLook(5); return true;
+                case KeyCode.Y: SetJizuraManualLook(6); return true;
                 default: return false;
             }
         }

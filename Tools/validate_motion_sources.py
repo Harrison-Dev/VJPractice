@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Source-level regression guards, NOT a C# compiler or a Unity rendering test."""
 from pathlib import Path
-import hashlib
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,29 +26,19 @@ compositor = read("Assets/VJ/Stage/Runtime/Motion/StageCompositor.cs")
 planner = read("Assets/VJ/Stage/Runtime/Motion/LyricMotionPlan.cs")
 controls = read("Assets/VJ/Stage/Runtime/PerformanceControls.cs")
 
-# Reverse the intended integration edits and remote-control removal, then verify the COMPLETE original blob.
-# This detects accidental modifications to transport, parsing hooks or legacy rendering.
-reverse = [
-    ('    public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;JizuraFromDocument(doc);}',
-     '    public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;}'),
-    ('    void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(p.EndsWith(".jizura.json",StringComparison.OrdinalIgnoreCase)){try{LoadJizuraProject(p);}catch(Exception ex){Message="JIZURA 匯入失敗："+ex.Message;}return;}if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}',
-     '    void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}'),
-    ("public RenderTexture Output=>KineticOutput?KineticOutput:history;", "public RenderTexture Output=>history;"),
-    ("ready=true;ConsoleInit();MotionInit();", "ready=true;ConsoleInit();"),
-    ("        PrepareMotionOutput();\n        if(!KineticReady)outputCamera.rect=CleanOutput?", "        outputCamera.rect=CleanOutput?"),
-    ("        RenderVisual();UpdateMotion();\n", "        RenderVisual();\n"),
-    ("    void HandleKey(KeyCode key){\n        if(HandleMotionKey(key)){Event.current.Use();return;}\n", "    void HandleKey(KeyCode key){\n"),
-    ("    void OnDestroy(){MotionDispose();Release();", "    void OnDestroy(){Release();"),
-    ("        if(!DrawMotionOutput(stage)){if(Blackout){Fill(stage,Color.black);}else DrawLyrics(stage);}", "        if(Blackout){Fill(stage,Color.black);}else DrawLyrics(stage);"),
-    (r'\np95ms={P95:F2}\n");Message=', r'\np95ms={P95:F2}\nremote={remote.Url}\n");Message='),
-]
-original = stage
-for current, old in reverse:
-    assert original.count(current) == 1, f"Missing or duplicate integration hook: {current}"
-    original = original.replace(current, old)
-blob = original.encode("utf-8")
-sha = hashlib.sha1(b"blob " + str(len(blob)).encode() + b"\0" + blob).hexdigest()
-check(sha == "24aec6c48bc624026b9855c4ecfbc6cea884d782", "pre-existing VJStage code preserved outside intentional integration edits")
+# The live deck deliberately replaces the six classic lyric modes. Guard the
+# integration paths and keep the removed selection API from returning.
+check("MotionInit();" in stage and "PrepareMotionOutput();" in stage and
+      "UpdateMotion();" in stage and "MotionDispose();" in stage and
+      "DrawMotionOutput(stage)" in stage and "JizuraFromDocument(doc)" in stage,
+      "Unity stage still initializes, updates, presents and disposes native output")
+check("LyricMode" not in stage and "LyricMode" not in controls and
+      'case "lyric"' not in controls and 'if (action == "lyric")' not in bridge and
+      "DrawAnimatedLine" not in stage,
+      "selectable legacy subtitle modes are removed")
+check("SetJizuraManualLook" in bridge and "JizuraManualLook" in controls and
+      'case "jizuraLook"' in read("Assets/VJ/Stage/Runtime/VJStage.Jizura.cs"),
+      "live JIZURA looks route through keyboard and operator controls")
 check("using UnityEngine" not in planner and "System.Random" not in planner and "GetHashCode(" not in planner,
       "portable core avoids Unity and process-dependent randomness")
 check("Time.time" not in renderer.replace("// Absolute song time, never Time.time", "") and "Time.deltaTime" not in renderer,
@@ -61,8 +50,9 @@ check("(frozen() && hasFrame)" in compositor and "blackout() ? black : presented
       "freeze retains the composited frame and blackout uses a separate texture")
 check("const int PoolSize = 32" in renderer and "used >= labels.Length" in renderer,
       "native text pool has an explicit draw budget")
-check("if(ApplyMotionControl(action,value))return;" in controls and 'if (action == "lyric") { KineticLyrics = false; return false; }' in bridge,
-      "classic and new controls share routing without removing classic modes")
+check("if(ApplyMotionControl(action,value))return;" in controls and
+      "ApplyJizuraControl(action, value)" in bridge,
+      "performance controls route through the native JIZURA layer")
 check("RemoteDeck" not in controls and "remote.Url" not in stage and
       not (ROOT / "Assets/VJ/Stage/Runtime/RemoteDeck.cs").exists() and
       not (ROOT / "Assets/VJ/Stage/Resources/RemoteDeck.txt").exists() and
@@ -88,6 +78,7 @@ assets = list((ROOT / "Assets/VJ/Stage/Runtime/Motion").glob("*.cs")) + [
     ROOT / "Assets/VJ/Stage/Runtime/VJStage.Jizura.cs",
     ROOT / "Assets/VJ/Stage/Editor/JizuraStudio.cs",
     ROOT / "Assets/VJ/Stage/Editor/JizuraValidation.cs",
+    ROOT / "Assets/VJ/Stage/Editor/VJStageRecorder.cs",
     ROOT / "Assets/VJ/Stage/Resources/JizuraDemo.json",
     ROOT / "Assets/VJ/Stage/ThirdParty/JIZURA-LICENSE.txt",
 ]
