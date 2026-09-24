@@ -1,6 +1,6 @@
 # Nightflight — VJPractice
 
-A macOS VJ practice instrument built with **Unity 6.0 (6000.0.64f1)** and **URP 17.0.4**. Combine audio-reactive GPU visuals, timed Japanese lyrics, keyboard performance controls, and an iPad-friendly controller on your local network.
+A macOS VJ practice instrument built with **Unity 6.0 (6000.0.64f1)** and **URP 17.0.4**. Combine audio-reactive GPU visuals, timed Japanese lyrics, and keyboard performance controls.
 
 This is an early, playable prototype. Its current interface is primarily in Traditional Chinese.
 
@@ -12,7 +12,7 @@ This is an early, playable prototype. Its current interface is primarily in Trad
 - System audio analysis through BlackHole and keijiro LASP, with local audio import and an original 48-second practice track as alternatives.
 - LRCLIB lyric search and candidate selection; LRC, enhanced LRC, SRT, VTT, plain text, and Folia JSON import.
 - Lyric offset adjustment, manual line stamping, session persistence, and an Editor lyric workspace.
-- A touch-friendly LAN controller with scene pads, lyric pads, four parameter faders, transport controls, blackout, freeze, and performance telemetry.
+- A Unity Editor performance panel with scene pads, lyric controls, four parameters, transport controls, blackout, freeze, and performance telemetry.
 
 ## Quick start
 
@@ -34,12 +34,6 @@ The main scene is `Assets/VJ/Stage/02_LyricStage.unity`. The earlier geometry ex
 BlackHole supplies audio; Spotify's scripting interface supplies song position. This is **not** a generic macOS Now Playing integration. Browser audio can be analyzed through BlackHole, but browser playback position is not synchronized automatically.
 
 No commercial recordings or downloaded full song lyrics are bundled. The included demo audio and text are original practice material. Lyrics are retrieved on demand from third-party sources; availability and timing quality vary.
-
-### iPad / LAN controller
-
-Keep Nightflight running, connect the iPad to the same network, and open the URL shown under **Performance → Copy connection URL** in Safari. Addresses and tokens are generated locally; do not reuse another installation's URL. Network client isolation can prevent access.
-
-Do not run the Editor performance scene and the standalone app simultaneously: both use port `32111`. The controller has been tested in a Mac browser at tablet dimensions; physical iPad validation is still pending. Use a trusted local network; this prototype does not provide HTTPS or Internet-facing authentication.
 
 ## Keyboard controls
 
@@ -84,7 +78,7 @@ See the [third-party notice](Assets/VJ/Stage/ThirdParty/NOTICE.md), [particle li
 ## Validation and limitations
 
 - Fifteen lyric parsing/timing checks previously passed, covering formats, offsets, gaps, round trips, and line stamping.
-- Spotify → BlackHole → LASP, LRCLIB search, keyboard input, and the LAN controller were exercised locally.
+- Spotify → BlackHole → LASP, LRCLIB search, and keyboard input were exercised locally.
 - On an Apple M1 Pro, six approximately four-second standalone fullscreen tests with Spotify and BlackHole measured **58.5–59.4 FPS**, with **P95 frame times of 17.0–17.6 ms**. See [raw measurements](Docs/Performance-0.4.json). This is a short test, not a sustained 60 FPS guarantee.
 - First-time font loading, lyric retrieval, and app switching may still cause transient stalls.
 - The retained YouTube embedding experiment is not a supported playback path: the tested official Humanoid video returned embed error 150.

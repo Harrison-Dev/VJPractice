@@ -1,6 +1,6 @@
 # Nightflight VJ Practice · 0.4
 
-Unity 版本 6000.0.64f1。開啟專案後選 VJ Practice → Open Playable Stage，再按 Play；已有本機建置則可開啟 Nightflight.app。練習建議用獨立版；不要同時在 Editor 按 Play，兩者會使用同一個控制台連接埠。
+Unity 版本 6000.0.64f1。開啟專案後選 VJ Practice → Open Playable Stage，再按 Play；可直接在 Editor 的 Game 視窗測試。
 
 ## 播放 Humanoid
 
@@ -11,16 +11,6 @@ Unity 版本 6000.0.64f1。開啟專案後選 VJ Practice → Open Playable Stag
 歌曲由 Spotify 播放，專案不附商業音檔。也能從音源頁匯入自己的音檔，或使用內附原創節奏示範。
 
 歌詞頁顯示來源與行數。Humanoid 使用 LRCLIB 3672778 的 55 行日文歌詞；搜尋與網路服務可能失敗，可手動選擇候選或匯入 LRC。逐字動畫由行時間估算，不等於逐字人聲辨識。可用歌詞偏移、逐行打點和儲存對齊修正。
-
-## iPad 觸控台
-
-Mac 和 iPad 連同一個 Wi-Fi，Safari 開啟：
-
-（從 Mac「演出 → 複製連線網址」取得）
-
-Mac 程式須保持開啟。換 Wi-Fi 或 IP 後，從「演出 → 複製連線網址」取得當前地址。Editor 與獨立版使用不同的連線 token，請以正在執行的版本為準。此控制台不經公網轉送；網路若啟用裝置隔離，iPad 可能無法連上。
-
-觸控台有六個視覺場景、六個歌詞模式、四個參數滑桿、播放／定位、凍結、黑幕、歌詞偏移和 FPS。橫向較適合操作。Mac 瀏覽器已驗證控制能實際改變 Unity；尚未在實體 iPad 驗證。
 
 ## 鍵盤
 
