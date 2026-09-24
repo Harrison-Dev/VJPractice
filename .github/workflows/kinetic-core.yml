@@ -1,0 +1,29 @@
+name: Kinetic lyric core
+on:
+  pull_request:
+    paths:
+      - 'Assets/VJ/Stage/**'
+      - 'Tools/Motion.Tests/**'
+      - 'Tools/validate_motion_sources.py'
+      - '.github/workflows/kinetic-core.yml'
+  push:
+    branches: [main, feature/kinetic-lyrics-v1]
+permissions:
+  contents: read
+concurrency:
+  group: kinetic-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run production C# planning core (not a Unity rendering test)
+        run: dotnet run --project Tools/Motion.Tests/Motion.Tests.csproj --configuration Release
+      - name: Check integration source invariants
+        if: ${{ hashFiles('Tools/validate_motion_sources.py') != '' }}
+        run: python3 Tools/validate_motion_sources.py
