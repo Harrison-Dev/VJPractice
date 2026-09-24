@@ -1,5 +1,7 @@
 # 文字 PV v1 — JIZURA-inspired kinetic lyrics
 
+> 本文件記錄 PR #1 最初的簡化版設計。現在已加入 [JIZURA Unity 原生移植](JizuraNativePort.md)；以下「沒有 JIZURA JSON／每句一個 cut」等描述僅適用於舊版 fallback。
+
 這是 Nightflight 的 **Unity 原生、逐句編排 MVP**，不是 JIZURA 網頁嵌入，也不是其 renderer 或 JSON 格式的相容移植。
 既有 Spotify／音源、LyricDocument、歌詞解析與六種傳統歌詞模式保留。
 

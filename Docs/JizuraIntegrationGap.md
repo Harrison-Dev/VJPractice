@@ -1,23 +1,23 @@
-# PR #1 與 JIZURA 的整合差距
+# JIZURA 與 Unity 原生移植的對照
 
-檢查基準：[JIZURA `1b48bea`](https://github.com/852wa/JIZURA/tree/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551) 與本專案 PR #1 的 `5c225dd`。這份紀錄用於釐清功能與驗收目標；目前 PR 是受 JIZURA 啟發的 Unity 原生簡化版，尚未整合 JIZURA 的專案、規劃器或渲染器。
+檢查基準：[JIZURA `1b48bea`](https://github.com/852wa/JIZURA/tree/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551)。PR #1 原先只有受 JIZURA 啟發的簡化文字 PV；目前已加入原生 C# 專案讀寫、規劃器、渲染器及 Editor 編輯器。下表記錄尚未達成的原版功能，避免將「可匯入專案」誤認為逐像素相容。
 
-| 能力 | JIZURA | PR #1 |
+| 能力 | Unity 原生移植現況 | 差距 |
 | --- | --- | --- |
-| 歌詞編排 | 一行可切成多個 timed cuts；可用 `/` 指定切點、`*...*` 強調、`!` 觸發衝擊、`|` 加註解，並可對拍 | 每行一個 cut；讀取既有 `LyricDocument` 時間，沒有 JIZURA 語法或對拍切鏡 |
-| 變體 | 一鍵重新生成風格、氛圍、動作、配色、構成；可前後瀏覽方案、只重抽一項、逐行覆寫或鎖定 | 三種 mood、目前句重抽與鎖定；沒有完整方案歷史、整體變體或分項重抽 |
-| 表現 | 24 種 style 與 707 個技巧，涵蓋版面、進場、保持、退場、裝飾、文字加工、背景、相機、畫面效果、轉場 | 五種版面、三種進場和三種退場；色差文字；其餘技巧類別沒有對應引擎 |
-| 專案互通 | 儲存／開啟 `.jizura.json`，另可輸出 AE 編排 JSON | 私有 `MotionPlan-<SHA256>.json`；不能讀寫 JIZURA 格式 |
-| 字型與語言 | 多書體、語言偵測與日／中／韓字型對應 | 固定專案內 Noto Sans CJK JP |
-| 輸出 | MP4、PNG 連番、透明前／後景、綠／黑背景；多種畫面比例、解析度和 fps | 即時 16:9 RenderTexture 與單張 F8 PNG |
+| `.jizura.json` | 可匯入、編輯、另存；保留未解析欄位與逐行覆寫 | 只接受 schema v1；未知設定保留資料但不一定影響畫面 |
+| 歌詞與時間 | 支援 LRC、`/` 切詞、`*...*` 強調、`!`、`|` 註解；可產生一行多個 timed cuts | 瀏覽器分詞與完整對拍規則尚未等價；沒有音訊分析 |
+| 編排 | 移植固定 seed 規劃、12 種原版核心配色、17 個核心 layout ID、進／保持／退場組合；可重抽與逐行鎖定 | layout 與動作由 uGUI 近似；未移植全部參數及 expression packs |
+| 裝飾 | 原生實作 9 個核心裝飾 ID、數種 HUD 與背景 accent | 原版 Canvas／shader 技巧、文字加工、相機、轉場及 707 個技巧未全數移植 |
+| 編輯器 | Unity Editor Window 可改歌詞、時間、風格、特效、逐行覆寫、歷史、Play Mode 即時預覽 | 原版網頁編輯器的所有互動沒有完全一對一重現 |
+| 字型、語言、格式 | 沿用專案 Noto CJK，使用既有 16:9 RenderTexture 與 F8 單張 PNG | 原版多字型、語言對應、其它畫面比例、MP4／PNG 連番／AE 輸出尚未移植 |
 
-JIZURA 是以 JavaScript、Canvas 2D、WebAudio 與 WebCodecs 實作的瀏覽器應用；PR #1 的渲染路徑是 Unity UGUI/URP。要在 Unity 中呈現同一個 JIZURA 專案，需要先決定是使用其原始引擎，還是建立有明確支援範圍的 Unity 渲染轉接層。只加更多面板按鈕或把 JIZURA JSON 複製進專案，無法取得對應的視覺效果。
+這條路徑完全在 Unity Editor 和執行時以 C#／uGUI／URP 工作，沒有內嵌網頁，也沒有瀏覽器遠端操作盤。原版 JSON 中尚未渲染的 ID 保留於專案，並在編輯器與舞台狀態標示。實作與操作見 [JizuraNativePort.md](JizuraNativePort.md)。
 
-## 若目標是在 Unity 使用 JIZURA 專案，最低驗收
+## 驗收範圍
 
-1. 能載入使用者從 JIZURA 儲存的 `.jizura.json`，並保留歌詞、時間、seed、style、逐行覆寫與鎖定。
-2. 同一專案在 Unity 中有多 cut 編排，預覽顯示的版面、動作、配色與 JIZURA 所選技巧有可驗證的對應；未支援技巧須明示，不能默默換成五種既有版面。
-3. 重新生成、逐行重抽與鎖定能在 Editor 中看見結果，且存檔後重開可重現。
-4. 使用原創示範在 Editor Play Mode 驗證畫面與輸出；依使用者要求，不以建置 Player 作為此輪測試。
+1. 原版 `.jizura.json` 載入後，歌詞、時間、seed、style、逐行覆寫及鎖定能保存重開。
+2. 原創示範產生多 cut，Editor Play Mode 輸出有原生文字與不同時點畫面。
+3. 編輯器改動能重新規劃並套用到 Play Mode 舞台；未支援的設定要明示。
+4. 不執行 Unity Player build；以 Editor Play Mode 和純 C# 規劃器檢查驗證。
 
-JIZURA 原始碼是 MIT 授權；若納入其程式碼，需要一併保留授權與相關第三方 notices。參考：[官方 README](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/README.md)、[planner](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/src/08_planner.js)、[renderer](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/src/09_render.js)、[license](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/LICENSE)。
+JIZURA 原始碼採 MIT 授權。專案內保留授權全文與 notice。參考：[官方 README](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/README.md)、[planner](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/src/08_planner.js)、[renderer](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/src/09_render.js)、[license](https://github.com/852wa/JIZURA/blob/1b48bea2d74e60f9b0ff2c247aa5919ba03a6551/LICENSE)。

@@ -43,7 +43,8 @@ namespace VJPractice.Stage.Editor
                 yield return new WaitForEndOfFrame();
                 yield return new WaitForEndOfFrame();
                 Require(stage.KineticOutput && stage.KineticOutput.IsCreated(), "Final output was not allocated.");
-                Transform nativeCanvas = stage.transform.Find("Kinetic lyrics (native output)");
+                Transform nativeCanvas = stage.transform.Find(stage.JizuraReady
+                    ? "JIZURA native output" : "Kinetic lyrics (native output)");
                 Require(nativeCanvas && nativeCanvas.gameObject.activeInHierarchy, "Native lyric Canvas is not visible.");
                 marker = new GameObject("Kinetic output probe marker", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
                 marker.transform.SetParent(nativeCanvas, false);

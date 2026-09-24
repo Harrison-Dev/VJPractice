@@ -12,11 +12,11 @@ namespace VJPractice.Stage
     {
         public bool KineticLyrics = true;
         public int KineticWidth = 1280, KineticHeight = 720;
-        public bool KineticReady => KineticLyrics && motionRenderer != null && motionCompositor != null;
+        public bool KineticReady => KineticLyrics && motionCompositor != null && (motionRenderer != null || jizuraRenderer != null);
         public RenderTexture KineticOutput => KineticReady ? motionCompositor.Output : null;
-        public int MotionMoodIndex => motionDirector == null ? 1 : (int)motionDirector.Plan.mood;
-        public bool MotionLocked => motionDirector?.Current != null && motionDirector.Current.locked;
-        public bool MotionPending => motionDirector != null && motionDirector.HasPending;
+        public int MotionMoodIndex => JizuraReady ? JizuraMoodIndex() : motionDirector == null ? 1 : (int)motionDirector.Plan.mood;
+        public bool MotionLocked => JizuraReady ? JizuraLineLocked() : motionDirector?.Current != null && motionDirector.Current.locked;
+        public bool MotionPending => !JizuraReady && motionDirector != null && motionDirector.HasPending;
         public string MotionStatus { get; private set; } = "先在音源頁選原創示範；M：風格 · N：重抽 · L：鎖定";
         KineticLyricRenderer motionRenderer;
         StageCompositor motionCompositor;
@@ -32,7 +32,15 @@ namespace VJPractice.Stage
             {
                 motionRenderer = new KineticLyricRenderer(transform, outputCamera, japaneseFont);
                 motionCompositor = new StageCompositor(outputCamera, () => Frozen, () => Blackout);
-                tab = 3; Message = "文字 PV 已啟用；到音源選原創示範，或連接 Spotify。";
+                try { JizuraInit(); }
+                catch (Exception jizuraError)
+                {
+                    JizuraDispose();
+                    Debug.LogException(jizuraError);
+                    Message = "JIZURA 原生渲染初始化失敗，已保留舊文字模式：" + jizuraError.Message;
+                }
+                tab = 3;
+                if (jizuraRenderer != null) Message = "JIZURA 原生文字 PV 已啟用。";
             }
             catch (Exception e)
             {
@@ -50,7 +58,8 @@ namespace VJPractice.Stage
                 KineticLyrics = false; motionCompositor?.Prepare(false, KineticWidth, KineticHeight);
                 Message = "文字 PV 輸出失敗，已退回原模式：" + e.Message;
             }
-            if (motionRenderer != null) motionRenderer.Visible = KineticReady;
+            if (motionRenderer != null) motionRenderer.Visible = KineticReady && !JizuraReady;
+            if (jizuraRenderer != null) jizuraRenderer.Visible = JizuraReady;
             if (!KineticReady) return;
             // Do not carry the feedback framebuffer from a different song/seek into the new cue.
             if (!Frozen)
@@ -73,6 +82,7 @@ namespace VJPractice.Stage
         void UpdateMotion()
         {
             if (!KineticReady || Document == null || (Frozen && motionCompositor.HasFrame)) return;
+            if (JizuraReady) { UpdateJizura(); return; }
             if (motionDocument != Document) BindMotionDocument();
             int index = Document.ActiveAt(Position);
             LyricCue cue = index >= 0 ? Document.lines[index] : null;
@@ -151,6 +161,7 @@ namespace VJPractice.Stage
             if (!LyricDocument.Finite(value)) return true;
             // Selecting a classic style leaves the new renderer.
             if (action == "lyric") { KineticLyrics = false; return false; }
+            if (ActiveJizuraPlan != null && ApplyJizuraControl(action, value)) return true;
             switch (action)
             {
                 case "motion":
@@ -200,7 +211,7 @@ namespace VJPractice.Stage
             switch (key)
             {
                 case KeyCode.K: return ApplyMotionControl("motion", KineticLyrics ? 0 : 1);
-                case KeyCode.M: return ApplyMotionControl("motionMood", (requestedMood + 1) % 3);
+                case KeyCode.M: return ApplyMotionControl("motionMood", (MotionMoodIndex + 1) % 3);
                 case KeyCode.N: return ApplyMotionControl("motionReroll", 0);
                 case KeyCode.L: return ApplyMotionControl("motionLock", 0);
                 case KeyCode.F6: return ApplyMotionControl("motionSave", 0);
@@ -248,11 +259,13 @@ namespace VJPractice.Stage
         void OnDisable()
         {
             if (motionRenderer != null) motionRenderer.Visible = false;
+            if (jizuraRenderer != null) jizuraRenderer.Visible = false;
             motionCompositor?.Prepare(false, KineticWidth, KineticHeight);
         }
 
         void MotionDispose()
         {
+            JizuraDispose();
             motionCompositor?.Dispose(); motionCompositor = null;
             motionRenderer?.Dispose(); motionRenderer = null;
         }

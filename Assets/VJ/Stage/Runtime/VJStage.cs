@@ -43,7 +43,7 @@ public sealed partial class VJStage:MonoBehaviour {
         Application.targetFrameRate=60;Application.runInBackground=true;ready=true;ConsoleInit();MotionInit();
     }
     public void SetTemplate(int index){if(templates==null||templates.Length==0)return;TemplateIndex=Mathf.Clamp(index,0,templates.Length-1);var p=templates[TemplateIndex];Energy=p.energy;Density=p.density;Flow=p.flow;Echo=p.echo;}
-    public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;}
+    public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;JizuraFromDocument(doc);}
     public void Seek(float seconds){Position=Mathf.Clamp(seconds,0,Duration);if(spotifyMode){spotify.Command("seek",Position);return;}if(browserMode){transport.Send("seek",Position);return;}if(!Audio.External&&Audio.Source.clip)Audio.Source.time=Mathf.Min(Position,Audio.Source.clip.length-.01f);}
     public void TogglePlay(){if(spotifyMode){spotify.Command(Playing?"pause":"play");return;}if(browserMode){transport.Send(Playing?"pause":"play");return;}Playing=!Playing;if(!Audio.External){if(Playing)Audio.Source.UnPause();else Audio.Source.Pause();}}
     public void Stamp(){try{Document.Stamp(SelectedLine,Position);SelectedLine=Mathf.Min(SelectedLine+1,Document.lines.Count-1);Message="Stamped / "+LyricDocument.Format(Position);}catch(Exception ex){Message=ex.Message;}}
@@ -112,7 +112,7 @@ public sealed partial class VJStage:MonoBehaviour {
         Message="Paste a local file path, then Load path.";
 #endif
     }
-    void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}
+    void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(p.EndsWith(".jizura.json",StringComparison.OrdinalIgnoreCase)){try{LoadJizuraProject(p);}catch(Exception ex){Message="JIZURA 匯入失敗："+ex.Message;}return;}if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}
     void WriteDiagnostics(){string directory=(Application.isEditor?Path.GetFullPath(Path.Combine(Application.dataPath,"../Verification")):Path.Combine(Application.persistentDataPath,"Verification"));Directory.CreateDirectory(directory);File.WriteAllText(Path.Combine(directory,"LiveDiagnostics.txt"),$"time={DateTime.UtcNow:o}\nsource={Audio.Status}\nexternal={Audio.External}\nspotifyConnected={spotify.Connected}\nspotifyPlaying={spotify.Playing}\nposition={Position:F3}\nduration={Duration:F3}\nbands={Audio.Bands}\nparticles={particles.aliveParticleCount}\nlyricSource={Document.source}\ncues={Document.lines.Count}\nactiveCue={Document.ActiveAt(Position)}\ntemplate={TemplateIndex}\nlyricMode={LyricMode}\nfps={Fps:F1}\np95ms={P95:F2}\n");Message="診斷已儲存。";}
     void DrawLyrics(Rect area){
         int index=Document.ActiveAt(Position);if(index<0)return;

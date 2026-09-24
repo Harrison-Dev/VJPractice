@@ -10,19 +10,21 @@ public sealed partial class VJStage {
  void PerformanceUpdate(){float ms=Time.unscaledDeltaTime*1000;if(ms>0){frameTimes[frameIndex++%frameTimes.Length]=ms;frameCount=Mathf.Min(frameCount+1,frameTimes.Length);}if(Time.unscaledTime>nextStats&&frameCount>0){nextStats=Time.unscaledTime+1;var copy=frameTimes.Take(frameCount).OrderBy(v=>v).ToArray();Fps=1000/Mathf.Max(1,copy.Average());P95=copy[Mathf.Clamp(Mathf.FloorToInt(copy.Length*.95f),0,copy.Length-1)];}}
  void Nudge(float amount){switch(parameter){case 0:Energy=Mathf.Clamp01(Energy+amount);break;case 1:Density=Mathf.Clamp01(Density+amount);break;case 2:Flow=Mathf.Clamp01(Flow+amount);break;case 3:Echo=Mathf.Clamp01(Echo+amount);break;}}
  void DrawPerformancePage(){
-  Caption(1120,231,"文字 PV / KINETIC LYRICS",15,ink,298);
-  if(Action(1120,265,298,"K 自動文字 PV",KineticLyrics))ApplyControl("motion",KineticLyrics?0:1);
+  Caption(1120,231,"JIZURA / UNITY 原生文字 PV",15,ink,298);
+  if(Action(1120,265,298,"K JIZURA 文字 PV",KineticLyrics))ApplyControl("motion",KineticLyrics?0:1);
   string[] moods={"冷靜","流行","故障"};
   for(int i=0;i<3;i++)if(Action(1120+i*102,308,94,moods[i],KineticLyrics&&MotionMoodIndex==i))ApplyControl("motionMood",i);
   if(Action(1120,351,145,"N 重抽歌詞"))ApplyControl("motionReroll",0);
   if(Action(1273,351,145,"L 鎖定本句",KineticLyrics&&MotionLocked))ApplyControl("motionLock",0);
-  if(Action(1120,395,145,"F6 儲存配置"))SaveMotionPlan();
-  if(Action(1273,395,145,"F7 載入配置"))LoadMotionPlan();
+  if(Action(1120,395,145,"F6 儲存配置"))ApplyControl("motionSave",0);
+  if(Action(1273,395,145,"F7 載入配置"))ApplyControl("motionLoad",0);
   if(Action(1120,437,298,"F8 輸出最終貼圖 PNG"))CaptureMotionOutput();
   Caption(1120,482,KineticLyrics?MotionStatus:"文字 PV 已關閉；按 K 或選風格啟用",12,cyan,298);
   Caption(1120,537,"原本六種模式 / Q W E R T Y",13,muted,298);
   string[] names={"Q 字幕","W 斜切","E 環繞","R 打字","T 字雨","Y 海報"};
   for(int i=0;i<6;i++)if(Action(1120+(i%3)*102,572+(i/3)*40,94,names[i],!KineticLyrics&&LyricMode==i))ApplyControl("lyric",i);
+  if(Action(1120,652,145,"JIZURA 編輯器"))OpenJizuraStudio();
+  if(Action(1273,652,145,"匯入 .jizura.json"))PickJizuraProject();
   Caption(1120,707,$"{Fps:F0} FPS / P95 {P95:F1} ms\nM 換風格 · H 輸出 · F 凍結 · B 黑幕",12,cyan,298);
  }
 }

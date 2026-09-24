@@ -4,6 +4,7 @@ on:
     paths:
       - 'Assets/VJ/Stage/**'
       - 'Tools/Motion.Tests/**'
+      - 'Tools/Jizura.Tests/**'
       - 'Tools/validate_motion_sources.py'
       - '.github/workflows/kinetic-core.yml'
   push:
@@ -24,5 +25,7 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Run production C# planning core (not a Unity rendering test)
         run: dotnet run --project Tools/Motion.Tests/Motion.Tests.csproj --configuration Release
+      - name: Run native JIZURA project and planner tests (no Unity Player build)
+        run: dotnet run --project Tools/Jizura.Tests/Jizura.Tests.csproj --configuration Release
       - name: Check integration source invariants
         run: python3 Tools/validate_motion_sources.py

@@ -30,6 +30,10 @@ controls = read("Assets/VJ/Stage/Runtime/PerformanceControls.cs")
 # Reverse the intended integration edits and remote-control removal, then verify the COMPLETE original blob.
 # This detects accidental modifications to transport, parsing hooks or legacy rendering.
 reverse = [
+    ('    public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;JizuraFromDocument(doc);}',
+     '    public void SetDocument(LyricDocument doc){Document=doc;SelectedLine=0;Message="Loaded "+doc.lines.Count+" lyric cues / "+doc.timing;}'),
+    ('    void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(p.EndsWith(".jizura.json",StringComparison.OrdinalIgnoreCase)){try{LoadJizuraProject(p);}catch(Exception ex){Message="JIZURA 匯入失敗："+ex.Message;}return;}if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}',
+     '    void ImportPath(string p){string ext=Path.GetExtension(p).ToLowerInvariant();if(ext==".wav"||ext==".mp3"||ext==".ogg")LoadAudio(p);else LoadLyrics(p);}'),
     ("public RenderTexture Output=>KineticOutput?KineticOutput:history;", "public RenderTexture Output=>history;"),
     ("ready=true;ConsoleInit();MotionInit();", "ready=true;ConsoleInit();"),
     ("        PrepareMotionOutput();\n        if(!KineticReady)outputCamera.rect=CleanOutput?", "        outputCamera.rect=CleanOutput?"),
@@ -66,11 +70,26 @@ check("RemoteDeck" not in controls and "remote.Url" not in stage and
       "browser remote server and page are removed")
 check("RenderTexture.active = target" in bridge and "new Rect(0, 0, target.width, target.height)" in bridge,
       "F8 captures the final texture rather than the operator screen")
+native_stage = read("Assets/VJ/Stage/Runtime/VJStage.Jizura.cs")
+native_planner = read("Assets/VJ/Stage/Runtime/Jizura/JizuraPlanner.cs")
+native_renderer = read("Assets/VJ/Stage/Runtime/Jizura/JizuraNativeRenderer.cs")
+check("JizuraPlanner.Build" in native_stage and "JizuraFromDocument(doc)" in stage and
+      'EndsWith(".jizura.json"' in stage, "original JIZURA project feeds the Unity stage")
+check("public static JizuraPlan Build" in native_planner and "public readonly List<JizuraCut> cuts" in native_planner and
+      "JizuraNativeRenderer" in native_renderer and "CurrentUnsupported" in native_renderer,
+      "native JIZURA planner and renderer expose timed cuts and unsupported IDs")
 
 assets = list((ROOT / "Assets/VJ/Stage/Runtime/Motion").glob("*.cs")) + [
     ROOT / "Assets/VJ/Stage/Runtime/Motion",
     ROOT / "Assets/VJ/Stage/Runtime/VJStage.Motion.cs",
     ROOT / "Assets/VJ/Stage/Editor/KineticOutputValidation.cs",
+] + list((ROOT / "Assets/VJ/Stage/Runtime/Jizura").glob("*.cs")) + [
+    ROOT / "Assets/VJ/Stage/Runtime/Jizura",
+    ROOT / "Assets/VJ/Stage/Runtime/VJStage.Jizura.cs",
+    ROOT / "Assets/VJ/Stage/Editor/JizuraStudio.cs",
+    ROOT / "Assets/VJ/Stage/Editor/JizuraValidation.cs",
+    ROOT / "Assets/VJ/Stage/Resources/JizuraDemo.json",
+    ROOT / "Assets/VJ/Stage/ThirdParty/JIZURA-LICENSE.txt",
 ]
 guids = []
 for asset in assets:
