@@ -6,7 +6,7 @@ PR #1 的新版文字 PV 使用 C# 專案模型、規劃器、uGUI 渲染器與 
 
 1. 使用 Unity 6000.0.64f1 開啟 `Assets/VJ/Stage/02_LyricStage.unity`，按 Play。舞台會載入 `Assets/VJ/Stage/Resources/JizuraDemo.json`，展示原生多 cut 文字 PV。
 2. 從選單 `VJ Practice → JIZURA Studio` 開啟原生編輯器。可匯入原版 `.jizura.json`，調整歌詞、時間、風格／特效、逐行配置與鎖定，並勾選即時同步到 Play Mode 舞台。
-3. 在舞台右側的演出頁，選「文字疊加」、「混合演出」或「JIZURA 全景」，並拖動「原舞台可見度」。左側 1–6 切換原有 shader／粒子模板，Energy、Density、Flow、Echo 同時驅動舞台與 JIZURA 字體；音訊頻帶也會影響文字。文字疊加只留下帶有進退場動畫的 JIZURA 歌詞，適合在舞台特效上使用；混合演出保留兩者；全景使用 JIZURA 的原生配色背景。M 切換三種風格、N 重抽、L 鎖定、F8 擷取最終 RenderTexture。F 凍結、B 黑幕及 H 乾淨輸出沿用。
+3. 在舞台右側的演出頁，選「文字疊加」、「混合演出」或「JIZURA 全景」，並拖動「原舞台可見度」；演出中也可直接按 7／8／9 切三種模式。左側 1–6 切換原有 shader／粒子模板，Energy、Density、Flow、Echo 同時驅動舞台與 JIZURA 字體；音訊頻帶也會影響文字。文字疊加只留下帶有進退場動畫的 JIZURA 歌詞，適合在舞台特效上使用；混合演出保留兩者；全景使用 JIZURA 的原生配色背景。M 切換三種風格、N 重抽、L 鎖定、F8 擷取最終 RenderTexture。F 凍結、B 黑幕及 H 乾淨輸出沿用。
 4. 舞台 F6／F7 同時存取 `Application.persistentDataPath` 下的 `CurrentJizura.jizura.json` 分鏡與獨立的 `CurrentJizura.live.json` 舞台配置（模板、混合比例、四個控制參數、BPM）。Studio 上方的「儲存 .jizura.json」只存原版專案；Studio 的舞台控制在 Play Mode 即時生效。若舞台透過 F7 載入另一份專案且 Studio 開啟「即時同步」，編輯器會跟隨新載入的內容。
 5. 原版 JSON 的逐行版面／效果 ID 若尚未移植，專案仍會保留該設定；編輯器與舞台狀態會列出未支援項。預覽是 Unity 的重寫版本，不保證與瀏覽器像素一致。
 

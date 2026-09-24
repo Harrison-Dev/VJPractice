@@ -14,9 +14,9 @@ public sealed partial class VJStage {
   bool overlay=KineticLyrics&&JizuraBlendStageVisuals&&JizuraStageBlend>=.995f;
   bool hybrid=KineticLyrics&&JizuraBlendStageVisuals&&JizuraStageBlend>.005f&&JizuraStageBlend<.995f;
   bool native=KineticLyrics&&(!JizuraBlendStageVisuals||JizuraStageBlend<=.005f);
-  if(Action(1120,265,94,"文字疊加",overlay))SetJizuraLiveMode(0);
-  if(Action(1222,265,94,"混合演出",hybrid))SetJizuraLiveMode(1);
-  if(Action(1324,265,94,"JIZURA 全景",native))SetJizuraLiveMode(2);
+  if(Action(1120,265,94,"7 文字疊加",overlay))SetJizuraLiveMode(0);
+  if(Action(1222,265,94,"8 混合演出",hybrid))SetJizuraLiveMode(1);
+  if(Action(1324,265,94,"9 JIZURA 全景",native))SetJizuraLiveMode(2);
   Caption(1120,305,$"原舞台可見度 {JizuraStageBlend:P0} · 左側 1–6 換特效",11,cyan,298);
   float nextBlend=GUI.HorizontalSlider(new Rect(1120,332,298,16),JizuraBlendStageVisuals?JizuraStageBlend:0f,0,1);
   if(Mathf.Abs(nextBlend-(JizuraBlendStageVisuals?JizuraStageBlend:0f))>.0001f){JizuraBlendStageVisuals=true;JizuraStageBlend=nextBlend;KineticLyrics=true;}

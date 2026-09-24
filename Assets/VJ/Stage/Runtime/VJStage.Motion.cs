@@ -217,6 +217,9 @@ namespace VJPractice.Stage
                 case KeyCode.F6: return ApplyMotionControl("motionSave", 0);
                 case KeyCode.F7: return ApplyMotionControl("motionLoad", 0);
                 case KeyCode.F8: return ApplyMotionControl("motionCapture", 0);
+                case KeyCode.Alpha7: SetJizuraLiveMode(0); return true;
+                case KeyCode.Alpha8: SetJizuraLiveMode(1); return true;
+                case KeyCode.Alpha9: SetJizuraLiveMode(2); return true;
                 case KeyCode.Q: case KeyCode.W: case KeyCode.E: case KeyCode.R: case KeyCode.T: case KeyCode.Y:
                     KineticLyrics = false; return false;
                 default: return false;
