@@ -53,9 +53,12 @@ namespace VJPractice.Stage.Editor
                 rect.offsetMin = rect.offsetMax = Vector2.zero;
                 yield return new WaitForEndOfFrame();
                 byte[] marked = Read(stage.KineticOutput, false);
+                byte[] cameraFrame = Read(stage.outputCamera.targetTexture, false);
                 int pixel = ((stage.KineticOutput.height / 2) * stage.KineticOutput.width + stage.KineticOutput.width / 2) * 3;
                 Require(marked[pixel] > 130 && marked[pixel + 2] > 130 && marked[pixel + 1] < 100,
-                    "Native Canvas marker is missing from the final texture (or its color/orientation is incorrect).");
+                    "Native Canvas marker is missing from the final texture. Camera center RGB: "
+                    + cameraFrame[pixel] + "," + cameraFrame[pixel + 1] + "," + cameraFrame[pixel + 2]
+                    + "; final center RGB: " + marked[pixel] + "," + marked[pixel + 1] + "," + marked[pixel + 2] + ".");
                 UnityEngine.Object.Destroy(marker); marker = null;
                 yield return new WaitForEndOfFrame();
                 yield return new WaitForEndOfFrame();

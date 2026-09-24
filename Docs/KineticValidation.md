@@ -7,11 +7,12 @@
 | C# production core | 24 個測試：seed、順序獨立、重抽、鎖定、延後操作、間奏、seek、時間邊界、Unicode、長句 fallback、JSON、schema、文化設定 | GitHub Actions 已執行通過；PR 最新 commit 的 checks 為準 |
 | Source invariants | 13 項：七個接入點外 VJStage 完整 blob 不變、clock、callback cleanup、RT freeze/blackout、池上限、按鈕路由、LAN 邊界、F8 貼圖來源、meta | 本機 Python 檢查已通過，亦納入 CI |
 | LAN JavaScript | 新增控制區塊的 JavaScript 語法 | 本機 `node --check` 已通過；不是 Safari 互動實測 |
-| Unity compilation / GPU | Unity 6000.0.64f1 + URP、字型、真正的 Canvas 與 RT | **尚未執行**：本次環境沒有 Unity Editor |
-| macOS / iPad / sustained FPS | Player、實體 iPad、持續效能、Spotify 同步 | **尚未執行**；不得把 core CI 成功當成這些項目通過 |
+| Unity compilation / GPU | Unity 6000.0.64f1 + URP、字型、真正的 Canvas 與 RT | 2026-09-24 在 Apple M1 Pro 的 Editor 編譯、Play Mode 與 output probe 通過；原創示範畫面與 PNG 已人工檢視 |
+| macOS Player | 獨立版建置與啟動 | 2026-09-24 macOS Build And Run 成功，獨立版顯示 Kinetic 文字、背景與粒子，Player.log 未見例外 |
+| iPad / sustained FPS / external sync | 實體 iPad、長時間效能、Spotify 同步回歸 | 尚未完整驗收；獨立版短時間顯示約 58 FPS，不能視為持續效能保證 |
 
 初次 core 成功的可追溯紀錄：[run 36003861068](https://github.com/Harrison-Dev/VJPractice/actions/runs/36003861068)。
-沒有提供或捏造本次 Unity 畫面截圖、影片、編譯成功或 FPS 測量。
+本機 probe 產生的 `Verification/Kinetic-Probe.png` 不納入 Git；需要人工查看排版時可在 Editor 重跑產生。
 
 ## 不需要 Unity 的測試
 

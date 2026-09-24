@@ -8,6 +8,7 @@ namespace VJPractice.Stage.Motion
     public sealed class StageCompositor : IDisposable
     {
         readonly Camera camera;
+        readonly Camera displayCamera;
         readonly Func<bool> frozen, blackout;
         readonly RenderTexture originalTarget;
         readonly Rect originalRect;
@@ -21,7 +22,19 @@ namespace VJPractice.Stage.Motion
             this.camera = camera ? camera : throw new ArgumentNullException(nameof(camera));
             this.frozen = frozen; this.blackout = blackout;
             originalTarget = camera.targetTexture; originalRect = camera.rect;
-            RenderPipelineManager.endCameraRendering += EndCamera;
+            // The stage camera renders only to a texture in kinetic mode. Keep a
+            // display camera alive so the Editor and Player have a real backbuffer
+            // behind the IMGUI operator console instead of "No cameras rendering".
+            var display = new GameObject("Kinetic display clear", typeof(Camera));
+            display.hideFlags = HideFlags.HideInHierarchy;
+            displayCamera = display.GetComponent<Camera>();
+            displayCamera.enabled = false;
+            displayCamera.cullingMask = 0;
+            displayCamera.clearFlags = CameraClearFlags.SolidColor;
+            displayCamera.backgroundColor = Color.black;
+            displayCamera.depth = camera.depth - 1;
+            displayCamera.targetDisplay = camera.targetDisplay;
+            RenderPipelineManager.endFrameRendering += EndFrame;
         }
 
         public void Prepare(bool enabled, int width, int height)
@@ -29,6 +42,7 @@ namespace VJPractice.Stage.Motion
             if (!enabled)
             {
                 if (active && camera) { camera.targetTexture = originalTarget; camera.rect = originalRect; }
+                if (displayCamera) displayCamera.enabled = false;
                 active = false; return;
             }
             width = Mathf.Clamp(width, 320, 1920); height = Mathf.Clamp(height, 180, 1080);
@@ -42,15 +56,19 @@ namespace VJPractice.Stage.Motion
                 hasFrame = false;
             }
             active = true;
+            if (displayCamera) displayCamera.enabled = true;
             camera.targetTexture = live; camera.rect = new Rect(0, 0, 1, 1);
         }
 
-        void EndCamera(ScriptableRenderContext context, Camera renderedCamera)
+        void EndFrame(ScriptableRenderContext context, Camera[] cameras)
         {
-            if (!active || renderedCamera != camera || !live || !presented || (frozen() && hasFrame)) return;
-            var command = CommandBufferPool.Get("Nightflight final output");
-            try { command.Blit(live, presented); context.ExecuteCommandBuffer(command); hasFrame = true; }
-            finally { CommandBufferPool.Release(command); }
+            if (!active || !live || !presented || (frozen() && hasFrame)) return;
+            // URP has submitted its camera commands by this point. Scheduling another
+            // command on that ScriptableRenderContext leaves the presented RT black.
+            var previous = RenderTexture.active;
+            try { Graphics.Blit(live, presented); }
+            finally { RenderTexture.active = previous; }
+            hasFrame = true;
         }
 
         static RenderTexture Make(string name, int width, int height, int depth)
@@ -73,8 +91,9 @@ namespace VJPractice.Stage.Motion
 
         public void Dispose()
         {
-            RenderPipelineManager.endCameraRendering -= EndCamera;
+            RenderPipelineManager.endFrameRendering -= EndFrame;
             if (camera) { camera.targetTexture = originalTarget; camera.rect = originalRect; }
+            if (displayCamera) UnityEngine.Object.Destroy(displayCamera.gameObject);
             Release(); active = false;
         }
     }

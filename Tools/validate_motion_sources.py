@@ -52,7 +52,7 @@ check("using UnityEngine" not in planner and "System.Random" not in planner and 
 check("Time.time" not in renderer.replace("// Absolute song time, never Time.time", "") and "Time.deltaTime" not in renderer,
       "lyric renderer has no accumulated wall-clock animation")
 check("Position - Document.offsetSeconds" in bridge and "Audio.Bands.x" in bridge, "song clock and audio modulation have separate inputs")
-check("endCameraRendering += EndCamera" in compositor and "endCameraRendering -= EndCamera" in compositor,
+check("endFrameRendering += EndFrame" in compositor and "endFrameRendering -= EndFrame" in compositor,
       "URP output callback has symmetric cleanup")
 check("(frozen() && hasFrame)" in compositor and "blackout() ? black : presented" in compositor,
       "freeze retains the composited frame and blackout uses a separate texture")
