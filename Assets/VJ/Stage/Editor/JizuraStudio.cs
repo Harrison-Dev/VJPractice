@@ -57,6 +57,8 @@ public sealed class JizuraStudio : EditorWindow
     JizuraPlan plan;
     VJStage stage;
     VJStage boundStage;
+    JizuraProject boundProject;
+    JizuraPlan boundPlan;
     double applyAt = -1;
     string status = "";
     MessageType statusType = MessageType.Info;
@@ -137,12 +139,33 @@ public sealed class JizuraStudio : EditorWindow
         {
             stage = found;
             boundStage = null;
+            boundProject = null;
+            boundPlan = null;
             Repaint();
         }
         if (stage && stage.Document != null && stage != boundStage)
         {
             boundStage = stage;
             if (syncToStage) ApplyToStage();
+        }
+        // F7 and the stage's own import replace ActiveJizuraProject. Follow that
+        // explicit live load instead of pushing a stale Studio draft over it.
+        if (stage && syncToStage && stage == boundStage && boundProject != null
+            && stage.ActiveJizuraProject != null && stage.ActiveJizuraProject != boundProject)
+            AdoptLiveProject();
+        else if (stage && syncToStage && stage == boundStage && boundProject != null
+            && stage.ActiveJizuraProject == boundProject && stage.ActiveJizuraPlan != null
+            && stage.ActiveJizuraPlan != boundPlan && applyAt < 0)
+        {
+            // M/N/L can replan the same mutable project without changing its identity.
+            boundPlan = stage.ActiveJizuraPlan;
+            try
+            {
+                project = JizuraProject.ParseJson(stage.ActiveJizuraProject.ToJson());
+                RebuildPlan();
+                SaveAuto();
+            }
+            catch (Exception e) { Report("同步舞台編排失敗：" + e.Message, MessageType.Error); }
         }
         if (applyAt >= 0 && EditorApplication.timeSinceStartup >= applyAt)
         {
@@ -181,8 +204,30 @@ public sealed class JizuraStudio : EditorWindow
     void ApplyToStage()
     {
         if (!stage || stage.Document == null || project == null) return;
-        try { stage.SetJizuraProject(project); }
+        try
+        {
+            stage.SetJizuraProject(project);
+            boundProject = stage.ActiveJizuraProject;
+            boundPlan = stage.ActiveJizuraPlan;
+        }
         catch (Exception e) { Report("套用到舞台失敗：" + e.Message, MessageType.Error); }
+    }
+
+    void AdoptLiveProject()
+    {
+        try
+        {
+            project = JizuraProject.ParseJson(stage.ActiveJizuraProject.ToJson());
+            boundProject = stage.ActiveJizuraProject;
+            boundPlan = stage.ActiveJizuraPlan;
+            applyAt = -1;
+            sourcePath = ""; // The stage's load path is private; do not present the old file as this source.
+            lookHistory.Clear(); lookIndex = -1;
+            RebuildPlan();
+            SaveAuto();
+            Report("舞台載入了另一個 JIZURA 專案；編輯器已同步目前畫面。");
+        }
+        catch (Exception e) { Report("同步舞台載入專案失敗：" + e.Message, MessageType.Error); }
     }
 
     void SaveAuto()
@@ -308,7 +353,7 @@ public sealed class JizuraStudio : EditorWindow
         EditorGUI.BeginChangeCheck();
         project.title = EditorGUILayout.TextField("標題", project.title ?? "");
         project.artist = EditorGUILayout.TextField("作者", project.artist ?? "");
-        project.lang = PopupValue("語言（保留原版設定）", project.lang, new[] { "auto", "ja", "zh-Hant", "zh-Hans", "ko", "en" });
+        project.lang = PopupValue("歌詞語言／分詞", project.lang, new[] { "auto", "ja", "zh-Hant", "zh-Hans", "ko", "en" });
         EditorGUILayout.HelpBox("一行一句。原版語法可用 [mm:ss.xx]、斜線分段 /、*強調*、句尾 !，以及 | 備註。直接編輯下方來源文字會重新計算分鏡。", MessageType.None);
         EditorGUILayout.LabelField("原始歌詞", EditorStyles.boldLabel);
         project.lyrics = EditorGUILayout.TextArea(project.lyrics ?? "", GUILayout.MinHeight(240), GUILayout.ExpandHeight(true));
@@ -341,31 +386,37 @@ public sealed class JizuraStudio : EditorWindow
         project.extra = EditorGUILayout.Toggle("追加技法（保留原版設定）", project.extra);
         project.wa = EditorGUILayout.Toggle("和風技法（保留原版設定）", project.wa);
         project.aspect = PopupValue("比例", project.aspect, new[] { "16:9", "9:16", "1:1", "4:3" });
-        project.keyBg = PopupValue("合成背景", project.keyBg, new[] { "off", "green", "black" });
-        project.fps = Mathf.Clamp(EditorGUILayout.IntField("FPS", project.fps), 1, 120);
-        project.res = Mathf.Clamp(EditorGUILayout.IntField("高度（px）", project.res), 240, 4320);
+        project.keyBg = PopupValue("原版 Key 背景（保留）", project.keyBg, new[] { "off", "green", "black" });
+        project.fps = Mathf.Clamp(EditorGUILayout.IntField("動畫計時 FPS", project.fps), 1, 120);
+        project.res = Mathf.Clamp(EditorGUILayout.IntField("原版輸出高度（保留）", project.res), 240, 4320);
         if (EditorGUI.EndChangeCheck()) MarkChanged();
-        EditorGUILayout.HelpBox("語言、追加／和風開關及輸出解析度會保存在原版 JSON；Unity 預覽目前使用舞台輸出解析度，這些欄位尚未完整接入原版邏輯。", MessageType.None);
+        EditorGUILayout.HelpBox("語言會影響分詞，比例會影響分鏡計算，FPS 影響動畫計時。追加／和風開關、Key 背景和原版輸出高度目前只保留在 JSON；Unity 預覽使用舞台輸出解析度。", MessageType.None);
         if (!SupportedStyleKeys.Contains(project.style))
             EditorGUILayout.HelpBox("此 Style 可以原樣讀寫，但 Unity 本版尚未移植其原版配色；預覽會使用基本配色。", MessageType.Warning);
         if (GUILayout.Button("重新抽整體 Seed")) { project.seed = UnityEngine.Random.Range(1, int.MaxValue); MarkChanged(true); }
         EditorGUILayout.Space(8);
-        EditorGUILayout.LabelField("特效強度（原版 FX 欄位）", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("JIZURA 特效 · Unity 已接入", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("Motion／Glitch 目前只影響 jitter／glitchtick 停留技法的抽選；其他強度已接入各自的原生分鏡或渲染。", MessageType.None);
         EditorGUI.BeginChangeCheck();
-        project.fx.motion = Slider("動作 Motion", project.fx.motion);
-        project.fx.glitch = Slider("故障 Glitch", project.fx.glitch);
+        project.fx.motion = Slider("Motion（jitter 抽選）", project.fx.motion);
+        project.fx.glitch = Slider("Glitch（glitchtick 抽選）", project.fx.glitch);
         project.fx.chroma = Slider("色散 Chroma", project.fx.chroma);
         project.fx.decor = Slider("裝飾 Decor", project.fx.decor);
         project.fx.density = Slider("密度 Density", project.fx.density);
-        project.fx.texture = Slider("質感 Texture", project.fx.texture);
         project.fx.bgSwitch = Slider("換景 BgSwitch", project.fx.bgSwitch);
-        project.fx.flash = EditorGUILayout.Toggle("閃光 Flash", project.fx.flash);
         project.fx.koma = EditorGUILayout.IntSlider("動畫格數 Koma（0 = 每格）", project.fx.koma, 0, 24);
-        project.fx.onTwos = project.fx.koma > 0;
         project.fx.hud = PopupValue("HUD", project.fx.hud, new[] { "auto", "on", "off" });
+        if (EditorGUI.EndChangeCheck()) { project.mood = null; MarkChanged(); }
+        EditorGUILayout.Space(5);
+        EditorGUILayout.LabelField("原版 FX 資料 · Unity 預覽未接入", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("下列欄位可編輯並保存回原版 JIZURA 專案；目前不改變 Unity 畫面。", MessageType.None);
+        EditorGUI.BeginChangeCheck();
+        project.fx.texture = Slider("Texture（保留）", project.fx.texture);
+        project.fx.flash = EditorGUILayout.Toggle("Flash（保留）", project.fx.flash);
         if (EditorGUI.EndChangeCheck()) { project.mood = null; MarkChanged(); }
         if (!string.IsNullOrEmpty(project.mood)) EditorGUILayout.LabelField("來源 Mood: " + project.mood, EditorStyles.miniLabel);
         EditorGUILayout.Space(6);
+        if (GUILayout.Button("設定 VJPractice 舞台背景與即時效果", GUILayout.Height(25))) tab = 3;
         DrawPaletteAndFonts();
         DrawEnabledSettings();
     }
@@ -652,7 +703,15 @@ public sealed class JizuraStudio : EditorWindow
                 EditorGUILayout.LabelField($"{count} 個分鏡 · 原始 Seed {line.seed}", EditorStyles.miniLabel);
                 foreach (var cut in plan.cuts.Where(c => c.line == i))
                 {
-                    bool partial = !SupportedLayoutKeys.Contains(cut.layout) || !SupportedEnterKeys.Contains(cut.enter) || !SupportedExitKeys.Contains(cut.exit);
+                    bool partial = !JizuraNativeRenderer.SupportsLayout(cut.layout)
+                        || !JizuraNativeRenderer.SupportsEnter(cut.enter)
+                        || !JizuraNativeRenderer.SupportsHold(cut.hold)
+                        || !JizuraNativeRenderer.SupportsExit(cut.exit)
+                        || (!string.IsNullOrEmpty(cut.bg) && cut.bg != "none")
+                        || (!string.IsNullOrEmpty(cut.treat) && cut.treat != "none")
+                        || (!string.IsNullOrEmpty(cut.cam) && cut.cam != "push" && cut.cam != "none")
+                        || (!string.IsNullOrEmpty(cut.trans) && cut.trans != "cut" && cut.trans != "none")
+                        || (cut.decor != null && cut.decor.Any(x => !JizuraNativeRenderer.SupportsDecor(x)));
                     EditorGUILayout.BeginHorizontal();
                     if (GUILayout.Button($"{cut.start:F2}–{cut.end:F2}s  {cut.layout} · {cut.enter} / {cut.hold} / {cut.exit}" + (partial ? "  ⚠ 部分呈現" : ""), EditorStyles.miniLabel))
                         if (stage) stage.Seek(cut.start + .001f);
@@ -689,17 +748,69 @@ public sealed class JizuraStudio : EditorWindow
             EditorGUILayout.EndHorizontal();
             float time = EditorGUILayout.Slider("時間", stage.Position, 0, Mathf.Max(1, stage.Duration));
             if (Mathf.Abs(time - stage.Position) > .02f) stage.Seek(time);
+            DrawStageMixControls();
             if (stage.KineticOutput)
             {
                 float width = Mathf.Max(100, position.width - 34);
                 Rect view = GUILayoutUtility.GetRect(width, width * 9f / 16f, GUILayout.ExpandWidth(true));
                 EditorGUI.DrawRect(view, Color.black);
                 GUI.DrawTexture(view, stage.KineticOutput, ScaleMode.ScaleToFit, false);
+                if (!string.IsNullOrEmpty(stage.MotionStatus))
+                    EditorGUILayout.HelpBox(stage.MotionStatus,
+                        stage.MotionStatus.Contains("未移植") ? MessageType.Warning : MessageType.None);
+                if (stage.JizuraBlendStageVisuals && stage.JizuraStageBlend >= .995f)
+                    EditorGUILayout.HelpBox("文字疊加模式會刻意隱藏原 JIZURA 版面、裝飾與 HUD。切換到混合演出或全景，才可檢查這些來源技巧的 Unity 呈現。", MessageType.None);
             }
             else EditorGUILayout.HelpBox("舞台輸出尚未初始化；請確認已進入 Play Mode 且場景有 VJStage。", MessageType.Warning);
         }
         else EditorGUILayout.HelpBox("進入 Play Mode 後，這裡會顯示 Unity 原生渲染的 RenderTexture。", MessageType.Info);
         DrawCutTimeline();
+    }
+
+    void DrawStageMixControls()
+    {
+        EditorGUILayout.Space(7);
+        EditorGUILayout.LabelField("JIZURA × VJPractice 舞台視覺", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox("0 = JIZURA 全景（原配色與完整編排）；中間 = 混合演出（JIZURA 編排疊在原舞台）；最右端 = 文字疊加（只留置中歌詞與進退場動畫，隱藏 JIZURA 裝飾和 HUD）。", MessageType.Info);
+        EditorGUILayout.BeginHorizontal();
+        if (GUILayout.Button("文字疊加", GUILayout.Height(25))) SetLiveMode(0);
+        if (GUILayout.Button("混合演出", GUILayout.Height(25))) SetLiveMode(1);
+        if (GUILayout.Button("JIZURA 全景", GUILayout.Height(25))) SetLiveMode(2);
+        EditorGUILayout.EndHorizontal();
+        stage.JizuraBlendStageVisuals = EditorGUILayout.Toggle("混合原有舞台視覺", stage.JizuraBlendStageVisuals);
+        GUI.enabled = stage.JizuraBlendStageVisuals;
+        stage.JizuraStageBlend = EditorGUILayout.Slider("原舞台背景比例", stage.JizuraStageBlend, 0, 1);
+        GUI.enabled = true;
+        if (!stage.JizuraBlendStageVisuals)
+            EditorGUILayout.LabelField("目前僅顯示 JIZURA 原背景與文字。", EditorStyles.miniLabel);
+        EditorGUILayout.LabelField("Play Mode 即時調整；舞台 F6／F7 同時存取 CurrentJizura.jizura.json 與 CurrentJizura.live.json。上方『儲存 .jizura.json』只存原版專案，不包含舞台混合配置。", EditorStyles.wordWrappedMiniLabel);
+        EditorGUILayout.SelectableLabel(Path.Combine(Application.persistentDataPath, "CurrentJizura.live.json"), EditorStyles.miniLabel, GUILayout.Height(18));
+        StageTemplate[] templates = stage.templates;
+        if (templates != null && templates.Length > 0)
+        {
+            string[] names = templates.Select((preset, i) => preset && !string.IsNullOrWhiteSpace(preset.title)
+                ? (i + 1) + " · " + preset.title : (i + 1) + " · 模板").ToArray();
+            int selected = Mathf.Clamp(stage.TemplateIndex, 0, templates.Length - 1);
+            int next = EditorGUILayout.Popup("原舞台模板", selected, names);
+            if (next != selected) stage.SetTemplate(next);
+            StageTemplate active = templates[Mathf.Clamp(stage.TemplateIndex, 0, templates.Length - 1)];
+            if (active && !string.IsNullOrWhiteSpace(active.subtitle))
+                EditorGUILayout.LabelField(active.subtitle, EditorStyles.miniLabel);
+        }
+        EditorGUILayout.LabelField("共用舞台參數 · shader／粒子／JIZURA 文字", EditorStyles.boldLabel);
+        stage.Energy = EditorGUILayout.Slider("Energy／能量", stage.Energy, 0, 1);
+        stage.Density = EditorGUILayout.Slider("Density／密度", stage.Density, 0, 1);
+        stage.Flow = EditorGUILayout.Slider("Flow／流動", stage.Flow, 0, 1);
+        stage.Echo = EditorGUILayout.Slider("Echo／殘影", stage.Echo, 0, 1);
+        stage.Bpm = EditorGUILayout.Slider("Stage 節拍 BPM", stage.Bpm, 30, 240);
+        EditorGUILayout.Space(7);
+    }
+
+    void SetLiveMode(int mode)
+    {
+        stage.KineticLyrics = true;
+        stage.JizuraBlendStageVisuals = mode != 2;
+        stage.JizuraStageBlend = mode == 0 ? 1f : mode == 1 ? .55f : 0f;
     }
 
     void DrawCutTimeline()

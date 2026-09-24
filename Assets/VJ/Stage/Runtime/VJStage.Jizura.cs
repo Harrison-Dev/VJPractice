@@ -10,6 +10,19 @@ namespace VJPractice.Stage
     {
         JizuraNativeRenderer jizuraRenderer;
         string jizuraProjectPath;
+        // Mix the existing StageVisual/particle camera under native JIZURA type.
+        // Zero keeps JIZURA's palette background; one exposes the stage fully.
+        public bool JizuraBlendStageVisuals = true;
+        [Range(0f, 1f)] public float JizuraStageBlend = .55f;
+        [Serializable] sealed class JizuraLiveLook
+        {
+            public int version;
+            public bool blendStage;
+            public float stageBlend;
+            public int templateIndex;
+            public float energy, density, flow, echo, bpm;
+        }
+        static string JizuraLiveLookPath => Path.Combine(Application.persistentDataPath, "CurrentJizura.live.json");
         public JizuraProject ActiveJizuraProject { get; private set; }
         public JizuraPlan ActiveJizuraPlan { get; private set; }
         public bool JizuraReady => KineticLyrics && jizuraRenderer != null && ActiveJizuraPlan != null;
@@ -126,6 +139,48 @@ namespace VJPractice.Stage
             Message = "已儲存 JIZURA 專案：" + path;
         }
 
+        void SaveJizuraLiveLook()
+        {
+            var look = new JizuraLiveLook
+            {
+                version = 1,
+                blendStage = JizuraBlendStageVisuals,
+                stageBlend = Mathf.Clamp01(JizuraStageBlend),
+                templateIndex = TemplateIndex,
+                energy = Mathf.Clamp01(Energy), density = Mathf.Clamp01(Density),
+                flow = Mathf.Clamp01(Flow), echo = Mathf.Clamp01(Echo), bpm = Bpm
+            };
+            string path = JizuraLiveLookPath, temp = path + ".tmp";
+            File.WriteAllText(temp, JsonUtility.ToJson(look, true), Encoding.UTF8);
+            if (File.Exists(path)) File.Replace(temp, path, null);
+            else File.Move(temp, path);
+        }
+
+        static JizuraLiveLook ReadJizuraLiveLook()
+        {
+            string path = JizuraLiveLookPath;
+            if (!File.Exists(path)) return null;
+            if (new FileInfo(path).Length > 65536) throw new FormatException("舞台配置檔案過大。");
+            var look = JsonUtility.FromJson<JizuraLiveLook>(File.ReadAllText(path, Encoding.UTF8));
+            if (look == null || look.version != 1 || !LyricDocument.Finite(look.stageBlend)
+                || !LyricDocument.Finite(look.energy) || !LyricDocument.Finite(look.density)
+                || !LyricDocument.Finite(look.flow) || !LyricDocument.Finite(look.echo)
+                || !LyricDocument.Finite(look.bpm))
+                throw new FormatException("舞台配置版本或數值無效。");
+            return look;
+        }
+
+        void ApplyJizuraLiveLook(JizuraLiveLook look)
+        {
+            if (look == null) return;
+            SetTemplate(look.templateIndex);
+            JizuraBlendStageVisuals = look.blendStage;
+            JizuraStageBlend = Mathf.Clamp01(look.stageBlend);
+            Energy = Mathf.Clamp01(look.energy); Density = Mathf.Clamp01(look.density);
+            Flow = Mathf.Clamp01(look.flow); Echo = Mathf.Clamp01(look.echo);
+            Bpm = Mathf.Clamp(look.bpm, 30f, 240f);
+        }
+
         void JizuraFromDocument(LyricDocument document)
         {
             if (document == null || jizuraRenderer == null) return;
@@ -136,7 +191,16 @@ namespace VJPractice.Stage
         void UpdateJizura()
         {
             if (!JizuraReady) return;
-            jizuraRenderer.Render(ActiveJizuraPlan, Position);
+            jizuraRenderer.Render(ActiveJizuraPlan, Position, new JizuraLiveInput
+            {
+                backgroundOpacity = JizuraBlendStageVisuals ? 1f - Mathf.Clamp01(JizuraStageBlend) : 1f,
+                textOnly = JizuraBlendStageVisuals && JizuraStageBlend >= .995f,
+                energy = Energy,
+                density = Density,
+                flow = Flow,
+                echo = Echo,
+                bands = Audio != null ? Audio.Bands : Vector4.zero
+            });
             JizuraCut active = null;
             foreach (JizuraCut cut in ActiveJizuraPlan.cuts)
             {
@@ -213,11 +277,23 @@ namespace VJPractice.Stage
                     ReplanJizura(); Message = selected.locked ? "已鎖定 JIZURA 本行配置。" : "已解鎖 JIZURA 本行配置。";
                     return true;
                 case "motionSave":
-                    try { SaveJizuraProject(Path.Combine(Application.persistentDataPath, "CurrentJizura.jizura.json")); }
+                    try
+                    {
+                        SaveJizuraProject(Path.Combine(Application.persistentDataPath, "CurrentJizura.jizura.json"));
+                        SaveJizuraLiveLook();
+                        Message = "已儲存 JIZURA 分鏡與舞台混合配置。";
+                    }
                     catch (Exception ex) { Message = "JIZURA 儲存失敗：" + ex.Message; }
                     return true;
                 case "motionLoad":
-                    try { LoadJizuraProject(Path.Combine(Application.persistentDataPath, "CurrentJizura.jizura.json")); }
+                    try
+                    {
+                        JizuraLiveLook look = ReadJizuraLiveLook();
+                        LoadJizuraProject(Path.Combine(Application.persistentDataPath, "CurrentJizura.jizura.json"));
+                        ApplyJizuraLiveLook(look);
+                        Message = look == null ? "已載入 JIZURA 分鏡；沒有另外儲存的舞台配置。"
+                            : "已載入 JIZURA 分鏡與舞台混合配置。";
+                    }
                     catch (Exception ex) { Message = "JIZURA 載入失敗：" + ex.Message; }
                     return true;
                 default: return false;

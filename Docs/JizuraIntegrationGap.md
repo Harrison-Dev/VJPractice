@@ -9,6 +9,7 @@
 | 編排 | 移植固定 seed 規劃、12 種原版核心配色、17 個核心 layout ID、進／保持／退場組合；可重抽與逐行鎖定 | layout 與動作由 uGUI 近似；未移植全部參數及 expression packs |
 | 裝飾 | 原生實作 9 個核心裝飾 ID、數種 HUD 與背景 accent | 原版 Canvas／shader 技巧、文字加工、相機、轉場及 707 個技巧未全數移植 |
 | 編輯器 | Unity Editor Window 可改歌詞、時間、風格、特效、逐行覆寫、歷史、Play Mode 即時預覽 | 原版網頁編輯器的所有互動沒有完全一對一重現 |
+| VJ 現場混合 | 原有六種舞台 shader／粒子作底層；JIZURA 原生 Canvas 作上層；有文字疊加、混合演出、JIZURA 全景及連續比例；Energy／Density／Flow／Echo 與音訊頻帶即時輸入，F6／F7 保存獨立舞台配置 | 原版技巧包與舞台 shader 尚無逐效果映射；未實作每個 JIZURA 層的獨立透明度與轉場控制 |
 | 字型、語言、格式 | 沿用專案 Noto CJK，使用既有 16:9 RenderTexture 與 F8 單張 PNG | 原版多字型、語言對應、其它畫面比例、MP4／PNG 連番／AE 輸出尚未移植 |
 
 這條路徑完全在 Unity Editor 和執行時以 C#／uGUI／URP 工作，沒有內嵌網頁，也沒有瀏覽器遠端操作盤。原版 JSON 中尚未渲染的 ID 保留於專案，並在編輯器與舞台狀態標示。實作與操作見 [JizuraNativePort.md](JizuraNativePort.md)。

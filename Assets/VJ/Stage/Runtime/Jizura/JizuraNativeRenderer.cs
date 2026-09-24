@@ -6,11 +6,30 @@ using UnityEngine.UI;
 
 namespace VJPractice.Stage.Jizura
 {
+    /// <summary>Current VJPractice controls sampled for one JIZURA frame.</summary>
+    public struct JizuraLiveInput
+    {
+        /// <summary>0 reveals the stage surface; 1 uses the opaque JIZURA palette.</summary>
+        public float backgroundOpacity;
+        /// <summary>Keep the lyric animation but omit JIZURA artwork for a clean Stage overlay.</summary>
+        public bool textOnly;
+        public float energy, density, flow, echo;
+        public Vector4 bands;
+
+        public static JizuraLiveInput Opaque
+        {
+            get { return new JizuraLiveInput { backgroundOpacity = 1f, energy = .5f,
+                density = .5f, flow = .5f, echo = .5f, bands = Vector4.zero }; }
+        }
+    }
+
     /// <summary>
     /// Native Unity presentation of a JIZURA cut plan. The cut clock, palette,
     /// layout and whole-glyph motion follow src/03_text.js, 04_styles.js,
     /// 05_anim.js, 06_layouts.js, 07_decor.js and 09_render.js of JIZURA. No browser runs here.
     /// The original fragment and Canvas filter technique packs are not ported.
+    /// A translucent palette and bounded contrast veil can composite this UI over
+    /// VJPractice's live camera surface in the same StageCompositor frame.
     /// </summary>
     public sealed class JizuraNativeRenderer : IDisposable
     {
@@ -26,13 +45,17 @@ namespace VJPractice.Stage.Jizura
         readonly Text[] labels = new Text[MaxLabels];
         readonly Image[] rects = new Image[MaxRects];
         readonly Image[] frontRects = new Image[MaxFrontRects];
+        readonly Outline[] outlines = new Outline[MaxLabels];
         readonly Image background;
-        readonly Texture2D circleTexture, ringTexture;
-        readonly Sprite circleSprite, ringSprite;
+        readonly Image readabilityBackdrop;
+        readonly Texture2D circleTexture, ringTexture, backdropTexture;
+        readonly Sprite circleSprite, ringSprite, backdropSprite;
         readonly Dictionary<JizuraCut, string[]> glyphCache = new Dictionary<JizuraCut, string[]>();
         JizuraPlan timeline;
         int labelCount, rectCount, frontRectCount;
-        bool frontLayer;
+        bool frontLayer, decorLayer;
+        JizuraLiveInput liveInput = JizuraLiveInput.Opaque;
+        float chromaStrength = .7f;
         bool visible;
 
         public bool Visible
@@ -129,6 +152,14 @@ namespace VJPractice.Stage.Jizura
             background.rectTransform.anchorMax = Vector2.one;
             background.rectTransform.offsetMin = Vector2.zero;
             background.rectTransform.offsetMax = Vector2.zero;
+            backdropTexture = MakeBackdropTexture();
+            backdropSprite = Sprite.Create(backdropTexture, new UnityEngine.Rect(0, 0, 128, 128),
+                new Vector2(.5f, .5f), 128f);
+            readabilityBackdrop = CreateImage("JIZURA text contrast veil");
+            readabilityBackdrop.sprite = backdropSprite;
+            readabilityBackdrop.rectTransform.anchorMin = readabilityBackdrop.rectTransform.anchorMax = new Vector2(.5f, .5f);
+            readabilityBackdrop.rectTransform.pivot = new Vector2(.5f, .5f);
+            readabilityBackdrop.rectTransform.sizeDelta = new Vector2(DesignWidth * 1.05f, DesignHeight * .95f);
             for (int i = 0; i < rects.Length; i++) rects[i] = CreateImage("JIZURA shape " + i);
             circleTexture = MakeRoundTexture(false);
             ringTexture = MakeRoundTexture(true);
@@ -136,7 +167,7 @@ namespace VJPractice.Stage.Jizura
             ringSprite = Sprite.Create(ringTexture, new UnityEngine.Rect(0, 0, 128, 128), new Vector2(.5f, .5f), 128f);
             for (int i = 0; i < labels.Length; i++)
             {
-                var go = new GameObject("JIZURA glyph " + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text));
+                var go = new GameObject("JIZURA glyph " + i, typeof(RectTransform), typeof(CanvasRenderer), typeof(Text), typeof(Outline));
                 go.transform.SetParent(root.transform, false);
                 var text = go.GetComponent<Text>();
                 text.font = font;
@@ -147,6 +178,9 @@ namespace VJPractice.Stage.Jizura
                 text.verticalOverflow = VerticalWrapMode.Overflow;
                 text.resizeTextForBestFit = false;
                 labels[i] = text;
+                outlines[i] = go.GetComponent<Outline>();
+                outlines[i].effectDistance = new Vector2(2f, -2f);
+                outlines[i].enabled = false;
                 go.SetActive(false);
             }
             for (int i = 0; i < frontRects.Length; i++) frontRects[i] = CreateImage("JIZURA foreground " + i);
@@ -175,14 +209,18 @@ namespace VJPractice.Stage.Jizura
         public void Seek(double seconds)
         {
             if (double.IsNaN(seconds) || double.IsInfinity(seconds)) { Clear(); return; }
-            Render(timeline, (float)Math.Max(0, Math.Min(seconds, float.MaxValue)));
+            Render(timeline, (float)Math.Max(0, Math.Min(seconds, float.MaxValue)), liveInput);
         }
 
         public void Render(JizuraPlan plan, float songTime)
+        { Render(plan, songTime, JizuraLiveInput.Opaque); }
+
+        public void Render(JizuraPlan plan, float songTime, JizuraLiveInput live)
         {
             SetTimeline(plan);
+            liveInput = Sanitize(live);
             labelCount = rectCount = frontRectCount = 0;
-            frontLayer = false;
+            frontLayer = decorLayer = false;
             if (plan == null || plan.cuts == null || float.IsNaN(songTime) || float.IsInfinity(songTime))
             { Clear(); return; }
 
@@ -197,7 +235,15 @@ namespace VJPractice.Stage.Jizura
             if (!string.IsNullOrEmpty(plan.aspect) && plan.aspect != "16:9")
                 CurrentUnsupported += (CurrentUnsupported.Length > 0 ? "、" : "") + "畫面比例 " + plan.aspect;
             var sc = SchemeFor(plan, cut == null ? 0 : cut.scheme);
-            background.color = sc.bg;
+            chromaStrength = plan.fx == null ? .7f : Mathf.Clamp01(plan.fx.chroma);
+            Color palette = sc.bg;
+            palette.a = liveInput.backgroundOpacity;
+            background.color = palette;
+            float veilAlpha = (1f - liveInput.backgroundOpacity) * (.27f + liveInput.energy * .11f);
+            Color veilColor = Luminance(sc.fg) > .48f ? Color.black : Color.white;
+            veilColor.a = veilAlpha;
+            readabilityBackdrop.color = veilColor;
+            readabilityBackdrop.gameObject.SetActive(veilAlpha > .002f);
             Visible = true;
             if (cut != null && !string.IsNullOrEmpty(cut.text))
             {
@@ -205,15 +251,31 @@ namespace VJPractice.Stage.Jizura
                 float dur = Mathf.Max(.05f, cut.end - cut.start);
                 float pIn = Mathf.Clamp01(lt / Mathf.Max(.01f, cut.inDur));
                 float pOut = cut.outDur > 0 ? Mathf.Clamp01((lt - dur + cut.outDur) / cut.outDur) : 0;
-                DrawStyleBack(plan, cut, sc, lt, pIn, pOut);
-                DrawDecor(cut, sc, lt, pIn, pOut, false);
-                DrawLayout(plan, cut, sc, t, lt, dur, pIn, pOut);
-                frontLayer = true;
-                DrawDecor(cut, sc, lt, pIn, pOut, true);
+                decorLayer = true;
+                if (liveInput.textOnly)
+                {
+                    decorLayer = false;
+                    string[] glyphs = Glyphs(cut);
+                    if (glyphs.Length > 0)
+                        DrawAnimated(cut, glyphs, DesignWidth * .5f, DesignHeight * .5f,
+                            Mathf.Min(DesignHeight * .2f, DesignWidth * .72f / glyphs.Length),
+                            0, sc.fg, sc, lt, dur, pIn, pOut, 1f, .05f);
+                }
+                else
+                {
+                    DrawStyleBack(plan, cut, sc, lt, pIn, pOut);
+                    DrawDecor(cut, sc, lt, pIn, pOut, false);
+                    decorLayer = false;
+                    DrawLayout(plan, cut, sc, t, lt, dur, pIn, pOut);
+                    frontLayer = true;
+                    decorLayer = true;
+                    DrawDecor(cut, sc, lt, pIn, pOut, true);
+                    decorLayer = false;
+                }
             }
             frontLayer = true;
-            if (WantsHud(plan)) DrawHud(plan, cut, sc, t);
-            frontLayer = false;
+            if (!liveInput.textOnly && WantsHud(plan)) DrawHud(plan, cut, sc, t);
+            frontLayer = decorLayer = false;
             for (int i = labelCount; i < labels.Length; i++)
                 if (labels[i].gameObject.activeSelf) labels[i].gameObject.SetActive(false);
             for (int i = rectCount; i < rects.Length; i++)
@@ -227,12 +289,29 @@ namespace VJPractice.Stage.Jizura
             CurrentCut = null;
             CurrentUnsupported = "";
             labelCount = rectCount = frontRectCount = 0;
-            frontLayer = false;
+            frontLayer = decorLayer = false;
             for (int i = 0; i < labels.Length; i++) if (labels[i].gameObject.activeSelf) labels[i].gameObject.SetActive(false);
             for (int i = 0; i < rects.Length; i++) if (rects[i].gameObject.activeSelf) rects[i].gameObject.SetActive(false);
             for (int i = 0; i < frontRects.Length; i++) if (frontRects[i].gameObject.activeSelf) frontRects[i].gameObject.SetActive(false);
             Visible = false;
         }
+
+        static JizuraLiveInput Sanitize(JizuraLiveInput value)
+        {
+            value.backgroundOpacity = Safe01(value.backgroundOpacity, 1f);
+            value.energy = Safe01(value.energy, .5f);
+            value.density = Safe01(value.density, .5f);
+            value.flow = Safe01(value.flow, .5f);
+            value.echo = Safe01(value.echo, .5f);
+            value.bands.x = Safe01(value.bands.x, 0);
+            value.bands.y = Safe01(value.bands.y, 0);
+            value.bands.z = Safe01(value.bands.z, 0);
+            value.bands.w = Safe01(value.bands.w, 0);
+            return value;
+        }
+
+        static float Safe01(float value, float fallback)
+        { return float.IsNaN(value) || float.IsInfinity(value) ? fallback : Mathf.Clamp01(value); }
 
         static JizuraCut CutAt(List<JizuraCut> cuts, float t)
         {
@@ -906,13 +985,20 @@ namespace VJPractice.Stage.Jizura
             var state = new GlyphState { text = glyph, x = x, y = y, size = size, rotation = rotation, alpha = alpha, scale = 1 };
             SampleGlyph(ref state, cut, index, count, lt, dur, pIn, pOut, enterOverride);
             if (state.alpha <= .002f || state.scale <= .002f) return;
-            float chroma = .006f * DesignWidth * Mathf.Clamp01(1f - Mathf.Abs(Signed(cut.seed, index, 33)) * .2f);
+            float bassPulse = liveInput.energy * liveInput.bands.x;
+            state.scale *= 1f + .075f * bassPulse;
+            state.y += Mathf.Sin(lt * (2f + 3f * liveInput.flow) + index * .62f)
+                * state.size * .008f * liveInput.energy * liveInput.flow;
+            float echo = chromaStrength * (.28f + .72f * liveInput.echo)
+                * (1f + liveInput.bands.z * .35f);
+            float chroma = .006f * DesignWidth * echo
+                * Mathf.Clamp01(1f - Mathf.Abs(Signed(cut.seed, index, 33)) * .2f);
             Put(state.text, state.x - chroma, state.y + chroma * .4f, state.size,
-                state.rotation, state.scale, WithAlpha(sc.ghostB, state.alpha * .3f), -1, scaleX, scaleY);
+                state.rotation, state.scale, WithAlpha(sc.ghostB, state.alpha * .3f * echo), -1, scaleX, scaleY);
             Put(state.text, state.x + chroma, state.y - chroma * .4f, state.size,
-                state.rotation, state.scale, WithAlpha(sc.ghostA, state.alpha * .38f), -1, scaleX, scaleY);
+                state.rotation, state.scale, WithAlpha(sc.ghostA, state.alpha * .38f * echo), -1, scaleX, scaleY);
             Put(state.text, state.x, state.y, state.size, state.rotation, state.scale,
-                WithAlpha(color, state.alpha), -1, scaleX, scaleY);
+                WithAlpha(color, state.alpha), -1, scaleX, scaleY, true);
         }
 
         static void SampleGlyph(ref GlyphState g, JizuraCut cut, int i, int n,
@@ -1036,10 +1122,12 @@ namespace VJPractice.Stage.Jizura
         }
 
         void Put(string value, float x, float y, float size, float rotation, float scale, Color color,
-            float width = -1, float scaleX = 1f, float scaleY = 1f)
+            float width = -1, float scaleX = 1f, float scaleY = 1f, bool legibilityOutline = false)
         {
+            if (decorLayer) color.a = Mathf.Clamp01(color.a * DecorGain());
             if (labelCount >= labels.Length || string.IsNullOrEmpty(value) || color.a <= .002f) return;
-            var label = labels[labelCount++];
+            int slot = labelCount++;
+            var label = labels[slot];
             if (!label.gameObject.activeSelf) label.gameObject.SetActive(true);
             if (label.text != value) label.text = value;
             label.fontSize = Mathf.Clamp(Mathf.RoundToInt(size), 1, 1000);
@@ -1050,6 +1138,13 @@ namespace VJPractice.Stage.Jizura
             rt.sizeDelta = new Vector2(width > 0 ? width : size * 1.7f, size * 1.7f);
             rt.localRotation = Quaternion.Euler(0, 0, rotation);
             rt.localScale = new Vector3(scale * scaleX, scale * scaleY, 1f);
+            var outline = outlines[slot];
+            outline.enabled = legibilityOutline && liveInput.backgroundOpacity < .98f;
+            if (outline.enabled)
+            {
+                float a = (1f - liveInput.backgroundOpacity) * .8f;
+                outline.effectColor = Luminance(color) > .48f ? new Color(0, 0, 0, a) : new Color(1, 1, 1, a);
+            }
         }
 
         void LabelPlate(string value, float x, float y, float size, float rotation, float progress, Scheme sc)
@@ -1063,6 +1158,7 @@ namespace VJPractice.Stage.Jizura
 
         void Rect(float x, float y, float width, float height, Color color, float alpha, float rotation = 0)
         {
+            if (decorLayer) alpha *= DecorGain();
             if (width <= 0 || height <= 0 || alpha <= .002f) return;
             Image image;
             if (frontLayer)
@@ -1087,6 +1183,7 @@ namespace VJPractice.Stage.Jizura
 
         void Circle(float x, float y, float radius, Color color, float alpha, bool outline = false)
         {
+            if (decorLayer) alpha *= DecorGain();
             if (radius <= 0 || alpha <= .002f) return;
             Image image;
             if (frontLayer)
@@ -1115,6 +1212,14 @@ namespace VJPractice.Stage.Jizura
             Rect((x0 + x1) * .5f, (y0 + y1) * .5f,
                 Mathf.Sqrt(dx * dx + dy * dy), width, color, alpha,
                 -Mathf.Atan2(dy, dx) * Mathf.Rad2Deg);
+        }
+
+        float DecorGain()
+        {
+            // Stage Density sets how assertive JIZURA ornament feels without
+            // changing the cut plan or its deterministic absolute-time geometry.
+            return Mathf.Lerp(.35f, 1.15f, liveInput.density)
+                * (1f + liveInput.bands.y * liveInput.energy * .18f);
         }
 
         Vector2 DesignPosition(float x, float y)
@@ -1223,8 +1328,33 @@ namespace VJPractice.Stage.Jizura
             if (root) UnityEngine.Object.Destroy(root);
             if (circleSprite) UnityEngine.Object.Destroy(circleSprite);
             if (ringSprite) UnityEngine.Object.Destroy(ringSprite);
+            if (backdropSprite) UnityEngine.Object.Destroy(backdropSprite);
             if (circleTexture) UnityEngine.Object.Destroy(circleTexture);
             if (ringTexture) UnityEngine.Object.Destroy(ringTexture);
+            if (backdropTexture) UnityEngine.Object.Destroy(backdropTexture);
+        }
+
+        static Texture2D MakeBackdropTexture()
+        {
+            const int size = 128;
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.name = "JIZURA native readability veil";
+            texture.filterMode = FilterMode.Bilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = (x + .5f - size * .5f) / (size * .5f);
+                    float dy = (y + .5f - size * .5f) / (size * .5f);
+                    float r = Mathf.Clamp01(dx * dx + dy * dy);
+                    float alpha = (1f - r) * (1f - r);
+                    pixels[y * size + x] = new Color32(255, 255, 255,
+                        (byte)Mathf.RoundToInt(alpha * 255f));
+                }
+            texture.SetPixels32(pixels);
+            texture.Apply(false, true);
+            return texture;
         }
 
         static Texture2D MakeRoundTexture(bool outline)

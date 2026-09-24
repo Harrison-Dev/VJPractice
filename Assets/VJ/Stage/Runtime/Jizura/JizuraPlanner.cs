@@ -155,9 +155,9 @@ namespace VJPractice.Stage.Jizura
                     bool isRecap = recap && k == texts.Count - 1;
                     bool emph = ln.impact && (k == 0 || isRecap) || ln.emph.Any(w => txt.Contains(w));
                     string layout = !string.IsNullOrEmpty(ov?.layout) ? ov.layout : PickLayout(project, p, rng, n, dur, history, emph, isRecap);
-                    string enter = !string.IsNullOrEmpty(ov?.enter) ? ov.enter : PickTechnique(project, rng, EnterKeys, "enter", history, emph);
-                    string exit = !string.IsNullOrEmpty(ov?.exit) ? ov.exit : PickTechnique(project, rng, ExitKeys, "exit", history, emph);
-                    string hold = !string.IsNullOrEmpty(ov?.hold) ? ov.hold : PickTechnique(project, rng, HoldKeys, "hold", history, emph);
+                    string enter = !string.IsNullOrEmpty(ov?.enter) ? ov.enter : PickEnter(project, rng, layout, dur, n, history, emph);
+                    string exit = !string.IsNullOrEmpty(ov?.exit) ? ov.exit : PickExit(project, rng, layout, dur, k == texts.Count - 1, history);
+                    string hold = !string.IsNullOrEmpty(ov?.hold) ? ov.hold : PickHold(project, rng, history);
                     float inDur = Clamp(dur * .36f, .12f, .6f);
                     if (enter == "type") inDur = Clamp(n * .055f + .1f, .15f, dur * .65f);
                     if (enter == "assemble") inDur = Clamp(dur * .45f, .22f, .75f);
@@ -167,6 +167,11 @@ namespace VJPractice.Stage.Jizura
                     if (inDur + outDur > dur * .92f) { float f = dur * .92f / (inDur + outDur); inDur *= f; outDur *= f; }
                     int cutScheme = scheme;
                     if (p.schemes.Count > 1 && k > 0 && rng.Chance(.12f * p.fx.bgSwitch)) cutScheme = (scheme + 1) % p.schemes.Count;
+                    // Original transitions are considered only at an adjacent cut boundary.
+                    // The native renderer has no transition compositor yet, so only explicit
+                    // override IDs are recorded and visibly reported as unsupported.
+                    JizuraCut previous = p.cuts.Count > 0 ? p.cuts[p.cuts.Count - 1] : null;
+                    bool canTrans = previous != null && Math.Abs(previous.end - cs) < .06f && previous.layout != "interlude" && dur > .5f;
                     var cut = new JizuraCut { line = li, text = txt, lineText = ln.text, note = ln.note,
                         start = cs, end = ce, layout = layout, enter = enter, exit = exit, hold = hold,
                         inDur = inDur, outDur = outDur, scheme = cutScheme, seed = Hash(unchecked((int)lineSeed), k, 17),
@@ -174,7 +179,7 @@ namespace VJPractice.Stage.Jizura
                         bg = !string.IsNullOrEmpty(ov?.bg) ? ov.bg : "none",
                         cam = !string.IsNullOrEmpty(ov?.cam) ? ov.cam : "push",
                         treat = !string.IsNullOrEmpty(ov?.treat) ? ov.treat : "none",
-                        trans = !string.IsNullOrEmpty(ov?.trans) ? ov.trans : null,
+                        trans = canTrans && !string.IsNullOrEmpty(ov?.trans) ? ov.trans : null,
                         decor = ov?.decor != null ? (string[])ov.decor.Clone() : PickDecor(project, p.fx, rng, layout, history) };
                     p.cuts.Add(cut); history.Add(cut);
                 }
@@ -363,42 +368,159 @@ namespace VJPractice.Stage.Jizura
             return best;
         }
 
+        // Original first-version style recipe weights from src/04_styles.js.
+        static readonly Dictionary<string, Dictionary<string, float>> StyleBias =
+            new Dictionary<string, Dictionary<string, float>>
+        {
+            { "noir/layout", new Dictionary<string, float> { { "vcols", 2f }, { "condensed", 2f }, { "marquee", 1.6f }, { "tile", 1.4f }, { "center", 1.2f } } },
+            { "noir/enter", new Dictionary<string, float> { { "assemble", 2.2f }, { "slice", 1.8f }, { "stretch", 1.4f } } },
+            { "noir/exit", new Dictionary<string, float> { { "explode", 1.8f }, { "fall", 1.2f }, { "drift", 1.4f } } },
+            { "crimson/layout", new Dictionary<string, float> { { "huge", 2f }, { "marquee", 1.6f }, { "scatter", 1.5f }, { "stack", 1.3f }, { "type", 1.3f } } },
+            { "crimson/enter", new Dictionary<string, float> { { "scramble", 1.6f }, { "slice", 1.6f }, { "type", 1.3f } } },
+            { "crimson/exit", new Dictionary<string, float> { { "glitch", 2f }, { "slice", 1.6f } } },
+            { "caution/layout", new Dictionary<string, float> { { "ring", 2.2f }, { "mixed", 2f }, { "circle", 1.4f }, { "gloss", 1.2f } } },
+            { "caution/enter", new Dictionary<string, float> { { "pop", 1.6f }, { "spin", 1.5f }, { "wipe", 1.2f } } },
+            { "caution/exit", new Dictionary<string, float> { { "scatter", 1.5f }, { "shrink", 1.2f } } },
+            { "magenta/layout", new Dictionary<string, float> { { "wave", 2.2f }, { "gloss", 1.6f }, { "huge", 1.6f }, { "pill", 1.4f }, { "scatter", 1.2f } } },
+            { "magenta/enter", new Dictionary<string, float> { { "pop", 2f }, { "drop", 1.6f }, { "spin", 1.3f }, { "blur", 1.2f } } },
+            { "magenta/exit", new Dictionary<string, float> { { "scatter", 1.6f }, { "shrink", 1.4f }, { "blur", 1.2f } } },
+            { "paper/layout", new Dictionary<string, float> { { "stack", 2.2f }, { "mixed", 1.8f }, { "huge", 1.6f }, { "vcols", 1.4f }, { "circle", 1.2f } } },
+            { "paper/enter", new Dictionary<string, float> { { "wipe", 1.6f }, { "stretch", 1.4f }, { "blur", 1.2f }, { "slice", 1.2f } } },
+            { "paper/exit", new Dictionary<string, float> { { "drift", 1.6f }, { "wipe", 1.4f } } },
+            { "hud/layout", new Dictionary<string, float> { { "circle", 2f }, { "ring", 1.6f }, { "vcols", 1.4f }, { "center", 1.2f }, { "gloss", 1f } } },
+            { "hud/enter", new Dictionary<string, float> { { "blur", 1.6f }, { "type", 1.4f }, { "assemble", 1.3f } } },
+            { "hud/exit", new Dictionary<string, float> { { "blur", 1.4f }, { "drift", 1.4f }, { "explode", 1.2f } } },
+            { "mint/layout", new Dictionary<string, float> { { "labels", 2.4f }, { "tile", 1.6f }, { "marquee", 1.4f }, { "type", 1.4f }, { "diag", 1.2f } } },
+            { "mint/enter", new Dictionary<string, float> { { "scramble", 1.8f }, { "type", 1.6f }, { "flicker", 1.4f } } },
+            { "mint/exit", new Dictionary<string, float> { { "glitch", 1.6f }, { "slice", 1.4f } } },
+            { "specimen/layout", new Dictionary<string, float> { { "gloss", 2.6f }, { "vcols", 1.8f }, { "mixed", 1.4f }, { "center", 1.2f }, { "tile", 1f } } },
+            { "specimen/enter", new Dictionary<string, float> { { "type", 1.8f }, { "blur", 1.6f }, { "wipe", 1.2f } } },
+            { "specimen/exit", new Dictionary<string, float> { { "blur", 1.6f }, { "drift", 1.2f }, { "wipe", 1.2f } } },
+            { "transit/layout", new Dictionary<string, float> { { "mixed", 2f }, { "scatter", 1.6f }, { "diag", 1.4f }, { "huge", 1.2f } } },
+            { "transit/enter", new Dictionary<string, float> { { "spin", 1.6f }, { "drop", 1.4f }, { "pop", 1.2f }, { "stretch", 1.2f } } },
+            { "transit/exit", new Dictionary<string, float> { { "scatter", 1.4f }, { "stretch", 1.4f } } },
+            { "blueprint/layout", new Dictionary<string, float> { { "diag", 2.2f }, { "labels", 1.4f }, { "huge", 1.4f }, { "condensed", 1.2f } } },
+            { "blueprint/enter", new Dictionary<string, float> { { "wipe", 1.6f }, { "slice", 1.6f }, { "stretch", 1.3f } } },
+            { "blueprint/exit", new Dictionary<string, float> { { "wipe", 1.6f }, { "slice", 1.4f }, { "glitch", 1.2f } } },
+            { "rouge/layout", new Dictionary<string, float> { { "huge", 2.2f }, { "pill", 2f }, { "mixed", 1.4f }, { "labels", 1.2f }, { "center", 1.2f } } },
+            { "rouge/enter", new Dictionary<string, float> { { "zoom", 1.6f }, { "wipe", 1.4f }, { "pop", 1.2f } } },
+            { "rouge/exit", new Dictionary<string, float> { { "shrink", 1.6f }, { "wipe", 1.2f } } },
+            { "mono/layout", new Dictionary<string, float> { { "circle", 1.8f }, { "ring", 1.6f }, { "pill", 1.4f }, { "tile", 1.4f }, { "vcols", 1.3f } } },
+            { "mono/enter", new Dictionary<string, float> { { "assemble", 1.4f }, { "blur", 1.4f }, { "zoom", 1.3f } } },
+            { "mono/exit", new Dictionary<string, float> { { "explode", 1.4f }, { "glitch", 1.4f }, { "blur", 1.2f } } },
+        };
+        static float StyleWeight(string style, string group, string key)
+        {
+            Dictionary<string, float> weights; float value;
+            return StyleBias.TryGetValue((style ?? "noir") + "/" + group, out weights) &&
+                weights.TryGetValue(key, out value) ? value : 1f;
+        }
+        static bool Fits(string key, int n)
+        {
+            // Exact first-version J.LAYOUTS.<key>.fits() from src/06_layouts.js.
+            switch (key)
+            {
+                case "mixed": return n >= 2 && n <= 16;
+                case "vcols": return n <= 18;
+                case "marquee": case "tile": case "gloss": case "stack": return n <= 12;
+                case "scatter": return n >= 2 && n <= 14;
+                case "ring": case "wave": return n >= 2 && n <= 16;
+                case "huge": return n <= 8;
+                case "labels": return n <= 16;
+                case "condensed": case "circle": return n <= 10;
+                case "type": return n <= 28;
+                case "diag": case "pill": return n <= 14;
+                default: return true;
+            }
+        }
+        static float PortraitWeight(string key)
+        {
+            switch (key)
+            {
+                case "vcols": return 1.9f; case "condensed": case "huge": return 1.3f;
+                case "center": return 1.2f; case "stack": return 1.1f;
+                case "mixed": return .7f; case "marquee": case "wave": return .6f;
+                case "diag": case "type": return .8f; case "gloss": return .5f;
+                default: return 1f;
+            }
+        }
+
         static string PickLayout(JizuraProject project, JizuraPlan plan, Rng rng, int n, float dur, List<JizuraCut> history, bool emph, bool recap)
         {
             var keys = new List<string>(); var weights = new List<float>();
             foreach (string key in LayoutKeys)
             {
-                if (!project.IsEnabled("layout", key)) continue;
-                if (n > 22 && (key == "ring" || key == "scatter" || key == "circle")) continue;
-                float w = 1f;
-                if (plan.styleKey == "noir" && (key == "vcols" || key == "condensed")) w *= 2f;
-                if (plan.styleKey == "crimson" && (key == "huge" || key == "marquee")) w *= 1.8f;
-                if (plan.styleKey == "magenta" && (key == "wave" || key == "huge")) w *= 2f;
-                if (plan.styleKey == "paper" && (key == "stack" || key == "mixed")) w *= 2f;
-                if (plan.styleKey == "mint" && (key == "labels" || key == "tile")) w *= 2f;
-                if (plan.styleKey == "specimen" && (key == "gloss" || key == "vcols")) w *= 2f;
-                if (plan.H > plan.W && (key == "vcols" || key == "condensed" || key == "huge")) w *= 1.4f;
-                if (emph && (key == "huge" || key == "tile" || key == "marquee")) w *= 2f;
-                if (recap && (key == "center" || key == "stack" || key == "mixed" || key == "type")) w *= 1.8f;
-                if (dur < .5f && (key == "wave" || key == "ring" || key == "type" || key == "tile")) w *= .3f;
-                w *= Novelty(history, key, "layout");
+                if (!project.IsEnabled("layout", key) || !Fits(key, n)) continue;
+                float w = StyleWeight(project.style, "layout", key) * Novelty(history, key, "layout");
+                if (plan.H > plan.W) w *= PortraitWeight(key);
+                if (emph && (key == "huge" || key == "center" || key == "tile" || key == "marquee" || key == "condensed")) w *= 2f;
+                if (recap && (key == "center" || key == "stack" || key == "marquee" || key == "tile" || key == "mixed" || key == "type" || key == "gloss")) w *= 1.8f;
+                if (dur < .5f && (key == "wave" || key == "ring" || key == "labels" || key == "gloss" || key == "type" || key == "tile")) w *= .3f;
+                if (dur < .5f && (key == "center" || key == "huge" || key == "condensed" || key == "vcols")) w *= 1.4f;
                 keys.Add(key); weights.Add(w);
             }
             return Weighted(rng, keys, weights, "center");
         }
-        static string PickTechnique(JizuraProject p, Rng rng, string[] order, string group, List<JizuraCut> history, bool emph)
+        static float EnterLayoutWeight(string layout, string key)
+        {
+            switch (layout)
+            {
+                case "type": if (key == "type") return 4f; if (key == "scramble") return 1.5f; break;
+                case "ring": if (key == "pop" || key == "spin") return 2f; if (key == "slice" || key == "wipe") return .2f; break;
+                case "labels": if (key == "cut") return 3f; if (key == "pop") return 1f; break;
+                case "wave": if (key == "pop" || key == "drop") return 1.5f; if (key == "slice") return .3f; break;
+                case "tile": if (key == "slice" || key == "zoom") return 1.4f; break;
+                case "huge": if (key == "zoom" || key == "wipe" || key == "slice") return 1.5f; if (key == "stretch") return 1.3f; if (key == "type") return .2f; break;
+                case "mixed": if (key == "pop" || key == "drop") return 1.6f; if (key == "spin") return 1.3f; break;
+                case "scatter": if (key == "pop" || key == "spin") return 1.5f; if (key == "drop") return 1.2f; break;
+                case "vcols": if (key == "type") return 1.2f; break;
+                case "pill": if (key == "wipe") return 1.8f; if (key == "type") return 1.2f; break;
+            }
+            return 1f;
+        }
+        static string PickEnter(JizuraProject project, Rng rng, string layout, float dur, int n, List<JizuraCut> history, bool emph)
         {
             var keys = new List<string>(); var weights = new List<float>();
-            foreach (string key in order)
+            foreach (string key in EnterKeys)
             {
-                if (!p.IsEnabled(group, key)) continue;
-                float w = Novelty(history, key, group);
-                if (group == "enter" && key == "cut") w *= .5f;
-                if (group == "hold" && key == "glitchtick") w *= p.fx.glitch;
-                if (emph && (key == "zoom" || key == "assemble" || key == "slice")) w *= 1.8f;
+                if (!project.IsEnabled("enter", key)) continue;
+                float w = StyleWeight(project.style, "enter", key) * Novelty(history, key, "enter") * EnterLayoutWeight(layout, key);
+                if (key == "cut") w *= .5f;
+                if (dur < .45f && (key == "type" || key == "drop" || key == "spin" || key == "pop" || key == "flicker")) w *= .25f;
+                if (dur < .45f && (key == "cut" || key == "slice" || key == "zoom" || key == "stretch")) w *= 1.8f;
+                if (key == "type" && n > 18) w *= .3f;
+                if (emph && (key == "zoom" || key == "slice")) w *= 1.8f;
                 keys.Add(key); weights.Add(w);
             }
-            return Weighted(rng, keys, weights, group == "hold" ? "still" : "cut");
+            return Weighted(rng, keys, weights, "cut");
+        }
+        static string PickExit(JizuraProject project, Rng rng, string layout, float dur, bool lastOfLine, List<JizuraCut> history)
+        {
+            var keys = new List<string>(); var weights = new List<float>();
+            foreach (string key in ExitKeys)
+            {
+                if (!project.IsEnabled("exit", key)) continue;
+                float w = StyleWeight(project.style, "exit", key) * Novelty(history, key, "exit");
+                if (key == "cut") w *= dur < .6f ? 4f : lastOfLine ? 1.2f : 2.2f;
+                if (dur < .6f && key != "cut") w *= .4f;
+                if ((layout == "labels" || layout == "ring" || layout == "tile") && (key == "fall" || key == "drift")) w *= .3f;
+                keys.Add(key); weights.Add(w);
+            }
+            return Weighted(rng, keys, weights, "cut");
+        }
+        static string PickHold(JizuraProject project, Rng rng, List<JizuraCut> history)
+        {
+            var keys = new List<string>(); var weights = new List<float>();
+            JizuraFx fx = project.fx ?? new JizuraFx();
+            foreach (string key in HoldKeys)
+            {
+                if (!project.IsEnabled("hold", key)) continue;
+                float w = key == "jitter" ? 1.2f : key == "breathe" ? .7f : key == "wave" ? .4f : key == "glitchtick" ? .9f : 1f;
+                if (key == "jitter") w *= .4f + fx.motion;
+                if (key == "glitchtick") w *= fx.glitch;
+                keys.Add(key); weights.Add(w * Novelty(history, key, "hold"));
+            }
+            return Weighted(rng, keys, weights, "still");
         }
         static string[] PickDecor(JizuraProject project, JizuraFx fx, Rng rng, string layout, List<JizuraCut> history)
         {
