@@ -1,0 +1,57 @@
+<script>
+(() => {
+  'use strict';
+  // Additive panel: preserve the existing controller, token URL and same-origin command route.
+  const panel = document.createElement('section');
+  panel.id = 'kinetic-panel';
+  panel.style.cssText = 'box-sizing:border-box;grid-column:1/-1;width:min(100%,1100px);margin:18px auto;padding:18px;border:1px solid #37515e;border-radius:16px;background:#101d27;color:#edf6fa;font:16px system-ui';
+  panel.innerHTML = `<h2 style="font-size:18px;margin:0 0 12px">文字 PV / Kinetic lyrics</h2>
+    <div class="kinetic-buttons" style="display:flex;flex-wrap:wrap;gap:9px">
+      <button data-action="motion" data-value="1">開啟文字 PV</button>
+      <button data-action="motion" data-value="0">回到原模式</button>
+      <button data-action="motionMood" data-value="0">冷靜</button>
+      <button data-action="motionMood" data-value="1">流行</button>
+      <button data-action="motionMood" data-value="2">故障</button>
+      <button data-action="motionReroll" data-value="0">下一句重抽</button>
+      <button data-action="motionLock" data-value="0">鎖定 / 解鎖本句</button>
+      <button data-action="motionSave" data-value="0">儲存本曲配置</button>
+      <button data-action="motionLoad" data-value="0">載入本曲配置</button>
+    </div>
+    <p role="status" style="line-height:1.5;margin-bottom:0">連線中…</p>`;
+  document.body.appendChild(panel);
+  const status = panel.querySelector('[role="status"]');
+  const buttons = [...panel.querySelectorAll('button')];
+  for (const button of buttons) {
+    button.type = 'button';
+    button.style.cssText = 'min-height:44px;padding:10px 14px;background:#183240;color:#edf6fa;border:1px solid #547484;border-radius:9px;font:inherit;touch-action:manipulation';
+    button.addEventListener('click', async () => {
+      try {
+        const result = await fetch('command', {method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:button.dataset.action, value:Number(button.dataset.value)})});
+        if (!result.ok) throw new Error('HTTP ' + result.status);
+      } catch (error) { status.textContent = '指令傳送失敗：' + error.message; }
+    });
+  }
+  async function poll() {
+    try {
+      if (!document.hidden) {
+        const response = await fetch('state', {cache:'no-store'});
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const state = await response.json();
+        status.textContent = (state.motionEnabled ? '文字 PV：' : '原模式：') + (state.motionStatus || '等待舞台')
+          + (state.motionPending ? '（待下一句生效）' : '');
+        for (const button of buttons) {
+          const action = button.dataset.action, value = Number(button.dataset.value);
+          const selected = action === 'motion' ? Number(!!state.motionEnabled) === value
+            : action === 'motionMood' ? state.motionEnabled && state.motionMood === value
+            : action === 'motionLock' ? !!state.motionLocked : false;
+          button.setAttribute('aria-pressed', String(selected));
+          button.style.borderColor = selected ? '#70e0e5' : '#547484';
+        }
+      }
+    } catch (error) { status.textContent = '控制連線中斷；確認 Nightflight 與同一個區域網路。'; }
+    finally { window.setTimeout(poll, 500); }
+  }
+  poll();
+})();
+</script>
