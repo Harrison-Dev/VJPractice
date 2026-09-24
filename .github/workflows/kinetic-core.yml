@@ -25,5 +25,14 @@ jobs:
       - name: Run production C# planning core (not a Unity rendering test)
         run: dotnet run --project Tools/Motion.Tests/Motion.Tests.csproj --configuration Release
       - name: Check integration source invariants
-        if: ${{ hashFiles('Tools/validate_motion_sources.py') != '' }}
         run: python3 Tools/validate_motion_sources.py
+      - name: Check LAN control JavaScript syntax (not a browser test)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          text = Path('Assets/VJ/Stage/Resources/MotionDeckEnhancement.txt').read_text(encoding='utf-8')
+          script = re.search(r'<script>(.*?)</script>', text, re.S).group(1)
+          Path(os.environ['RUNNER_TEMP'], 'motion-deck.js').write_text(script, encoding='utf-8')
+          PY
+          node --check "$RUNNER_TEMP/motion-deck.js"
